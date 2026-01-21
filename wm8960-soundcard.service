@@ -1,0 +1,13 @@
+[Unit]
+Description=WM8960 soundcard service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/wm8960-soundcard
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
