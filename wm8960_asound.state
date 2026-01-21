@@ -1,0 +1,19 @@
+<!DOCTYPE node>
+<node>
+  <state>
+    <card index="1" name="vc4hdmi">
+      <control>
+        <item name="Master Playback Volume" type="integer">255</item>
+        <item name="Master Playback Switch" type="boolean">true</item>
+      </control>
+    </card>
+    <card index="2" name="wm8960soundcard">
+      <control>
+        <item name="PCM Playback Volume" type="integer">255</item>
+        <item name="PCM Playback Switch" type="boolean">true</item>
+        <item name="Headphone Playback Volume" type="integer">255</item>
+        <item name="Headphone Playback Switch" type="boolean">true</item>
+      </control>
+    </card>
+  </state>
+</node>
