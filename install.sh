@@ -91,9 +91,14 @@ if [ -d "/boot/firmware/overlays" ]; then
 elif [ -d "/boot/overlays" ]; then
     BOOT_OVERLAYS="/boot/overlays"
 else
-    # If neither exists, default to /boot/overlays and create it
-    BOOT_OVERLAYS="/boot/overlays"
-    echo "Note: Boot overlays directory not found, will create $BOOT_OVERLAYS"
+    # If neither exists, check which boot firmware location is in use
+    if [ -d "/boot/firmware" ]; then
+        BOOT_OVERLAYS="/boot/firmware/overlays"
+        echo "Note: Boot firmware overlays directory not found, will create $BOOT_OVERLAYS"
+    else
+        BOOT_OVERLAYS="/boot/overlays"
+        echo "Note: Boot overlays directory not found, will create $BOOT_OVERLAYS"
+    fi
 fi
 
 # Create overlays directory if it doesn't exist
