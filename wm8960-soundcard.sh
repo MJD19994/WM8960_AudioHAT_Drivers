@@ -56,7 +56,11 @@ if [ "x${is_1a}" != "x" ]; then
   
   echo "WM8960 service initialization complete"
 else
-  echo "ERROR: WM8960 codec not detected at I2C address 0x1a"
-  echo "Please verify hardware connection and I2C configuration"
+  echo "WARNING: WM8960 codec not detected at I2C address 0x1a"
+  echo "Please verify:"
+  echo "  1. WM8960 HAT is properly seated on GPIO pins"
+  echo "  2. I2C is enabled (dtparam=i2c_arm=on in config.txt)"
+  echo "  3. Hardware connections are secure"
+  echo "The service will exit. Check hardware and restart: sudo systemctl restart wm8960-soundcard.service"
   exit 1
 fi

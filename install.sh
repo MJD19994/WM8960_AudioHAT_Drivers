@@ -153,12 +153,11 @@ if ! grep -q "^dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
     echo "Enabled I2S-MMAP overlay in config.txt"
 fi
 
-# Disable default /sound node to prevent driver conflicts
-# This prevents the built-in simple-audio-card driver from registering
-if ! grep -q "^dtoverlay=disable-bt" "$CONFIG_FILE"; then
-    # Add comment explaining the sound node disabling
+# Add informational comment about sound node conflict handling
+# This comment explains that the service will handle disabling the sound node dynamically
+if ! grep -q "Disable default /sound node" "$CONFIG_FILE"; then
     echo "" >> "$CONFIG_FILE"
-    echo "# Disable default /sound node to prevent asoc-simple-card driver conflict" >> "$CONFIG_FILE"
+    echo "# Note: Default /sound node conflicts are handled dynamically by wm8960-soundcard.service" >> "$CONFIG_FILE"
 fi
 
 # Note: We do NOT add dtoverlay=wm8960-soundcard here - loaded dynamically by service
