@@ -140,10 +140,24 @@ if ! grep -q "^dtparam=i2c_arm=on" "$CONFIG_FILE"; then
     echo "Enabled I2C in config.txt"
 fi
 
-# Enable I2S
-if ! grep -q "^dtparam=i2s=on" "$CONFIG_FILE"; then
-    echo "dtparam=i2s=on" >> "$CONFIG_FILE"
-    echo "Enabled I2S in config.txt"
+# Enable I2S-MMAP (required for proper I2S memory-mapped interface)
+# Remove old dtparam=i2s=on if present
+if grep -q "^dtparam=i2s=on" "$CONFIG_FILE"; then
+    sed -i 's/^dtparam=i2s=on/#dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap/' "$CONFIG_FILE"
+    echo "Replaced dtparam=i2s=on with dtoverlay=i2s-mmap"
+fi
+
+# Add dtoverlay=i2s-mmap if not present
+if ! grep -q "^dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
+    echo "dtoverlay=i2s-mmap" >> "$CONFIG_FILE"
+    echo "Enabled I2S-MMAP overlay in config.txt"
+fi
+
+# Add informational comment about sound node conflict handling
+# This comment explains that the service will handle disabling the sound node dynamically
+if ! grep -q "Disable default /sound node" "$CONFIG_FILE"; then
+    echo "" >> "$CONFIG_FILE"
+    echo "# Note: Default /sound node conflicts are handled dynamically by wm8960-soundcard.service" >> "$CONFIG_FILE"
 fi
 
 # Note: We do NOT add dtoverlay=wm8960-soundcard here - loaded dynamically by service

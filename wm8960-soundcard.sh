@@ -24,27 +24,43 @@ done
 
 # Check if codec was found
 if [ "x${is_1a}" != "x" ]; then
-  echo "install wm8960-soundcard"
+  echo "WM8960 codec detected at I2C address 0x1a"
   
+  # Disable the default /sound node to prevent asoc-simple-card driver conflict
+  # The WM8960 overlay registers as "asoc-simple-card" which conflicts with built-in driver
+  echo "Disabling default /sound node to prevent driver conflict..."
+  if [ -d "/proc/device-tree/sound" ]; then
+    # Use dtoverlay to disable the sound node if it exists
+    dtparam -R sound 2>/dev/null || echo "Note: Could not remove sound node (may not exist)"
+  fi
+  
+  echo "Loading wm8960-soundcard overlay..."
   # Load the WM8960 overlay dynamically (ONLY HERE - not in config.txt)
-dtoverlay wm8960-soundcard
+  dtoverlay wm8960-soundcard
   sleep 1
   
   # Remove old ALSA config files
-  rm /etc/asound.conf
-  rm /var/lib/alsa/asound.state
+  rm -f /etc/asound.conf
+  rm -f /var/lib/alsa/asound.state
   
   # Create symlinks to new config files
-  echo "create wm8960-soundcard configure file"
+  echo "Creating wm8960-soundcard configuration symlinks..."
   ln -s /etc/wm8960-soundcard/asound.conf /etc/asound.conf
-  echo "create wm8960-soundcard status file"
+  echo "Created asound.conf symlink"
   ln -s /etc/wm8960-soundcard/wm8960_asound.state /var/lib/alsa/asound.state
+  echo "Created asound.state symlink"
   
-  break
+  # Restore ALSA state (suppress warnings about missing controls)
+  echo "Restoring ALSA mixer state..."
+  alsactl restore 2>/dev/null || echo "Note: Some ALSA controls may not be available yet"
+  
+  echo "WM8960 service initialization complete"
+else
+  echo "WARNING: WM8960 codec not detected at I2C address 0x1a"
+  echo "Please verify:"
+  echo "  1. WM8960 HAT is properly seated on GPIO pins"
+  echo "  2. I2C is enabled (dtparam=i2c_arm=on in config.txt)"
+  echo "  3. Hardware connections are secure"
+  echo "The service will exit. Check hardware and restart: sudo systemctl restart wm8960-soundcard.service"
+  exit 1
 fi
-
-# Restore ALSA state (suppress warnings about missing vc4hdmi state)
-# The complete state file includes both vc4hdmi and wm8960soundcard
-alsactl restore 2>/dev/null
-
-echo "WM8960 service initialization complete"
