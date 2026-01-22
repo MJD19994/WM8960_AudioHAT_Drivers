@@ -1,73 +1,35 @@
-# WM8960 AudioHAT Drivers
+# Installation Guide
 
-## Overview
-The WM8960 AudioHAT Drivers provide support for the WM8960 audio codec on HAT-formatted boards. This guide explains how to install, configure, and verify the drivers.
-
-## Issues Fixed Table
-| Issue ID | Description                              | Status   |
-|----------|------------------------------------------|----------|
-| #1       | Fixed initialization failure.            | Resolved |
-| #2       | Improved audio quality on playback.     | Resolved |
-| #3       | Addressed compatibility with Python 3.6 | Resolved |
-
-## Prerequisites
-
-### Step 0: System Updates
-Make sure your system is up-to-date by running the following commands:
+## System Updates
+Before starting the installation, ensure that your system is up to date. You can do this by running the following commands:
 ```bash
 sudo apt update && sudo apt upgrade -y
 ```
 
-### Step 1: Git Prerequisites
-Ensure that you have Git installed. If not, install it using:
+## Git Prerequisites
+Make sure you have Git installed on your system. You can install Git using the following command:
 ```bash
-sudo apt install git -y
+sudo apt install git
 ```
 
-### Step 2: Build Tools Installation
-To build the drivers, install the necessary build tools:
+## DKMS Explanation
+DKMS (Dynamic Kernel Module Support) allows you to automatically rebuild kernel modules when a new kernel is installed. This is crucial for maintaining functionality of the WM8960 AudioHAT after kernel updates.
+
+### Installing DKMS
+To install DKMS, run:
 ```bash
-sudo apt install build-essential -y
+sudo apt install dkms
 ```
 
-## Full Installation Steps
-1. Clone the repository:
-    ```bash
-    git clone https://github.com/MJD19994/WM8960_AudioHAT_Drivers.git
-    cd WM8960_AudioHAT_Drivers
-    ```
-2. Run the install script:
-    ```bash
-    sudo ./install.sh
-    ```
-
-## Verification Procedures
-After installation, you can verify the setup by running:
+## Verification Steps
+After installation, verify that the WM8960 module is loaded and working correctly by running:
 ```bash
-speaker-test -c2 -twav
+lsmod | grep wm8960
 ```
-This will test the stereo output to ensure everything is functioning correctly.
-
-## Configuration Explanations
-Modify the configuration file located at `/etc/wm8960.conf` to customize settings for your specific needs.
-
-## Dynamic Loading Explanation
-The drivers support dynamic loading. You can load the module using:
-```bash
-sudo modprobe wm8960
-```
-
-## Advanced Configuration
-For advanced users, you can set parameters in `/etc/modprobe.d/wm8960.conf` to tweak performance settings.
+If you see the module listed, it means it is loaded successfully.
 
 ## Troubleshooting References
-If you encounter issues, refer to the troubleshooting section in the [official documentation](URL_TO_DOCUMENTATION).
-
-## Uninstallation
-To uninstall the drivers, run:
-```bash
-sudo make uninstall
-```
-
-## License Information
-The WM8960 AudioHAT Drivers are released under the MIT License. See the LICENSE file for details.
+If you encounter issues, check the following:
+- Ensure the module is loaded: `lsmod | grep wm8960`
+- Check `dmesg` for any error messages related to the WM8960: `dmesg | grep wm8960`
+- Review the installation instructions to ensure all steps were followed correctly.
