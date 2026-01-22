@@ -49,8 +49,8 @@ if [ ! -d "/usr/src/wm8960-soundcard-1.0" ]; then
     
     # Verify required source files were copied
     echo "Verifying source files..."
-    required_files="wm8960.c wm8960-soundcard.c Makefile"
-    for file in $required_files; do
+    required_files=("wm8960.c" "wm8960-soundcard.c" "Makefile")
+    for file in "${required_files[@]}"; do
         if [ ! -f "/usr/src/wm8960-soundcard-1.0/$file" ]; then
             echo "Error: Required file $file not found in /usr/src/wm8960-soundcard-1.0/"
             exit 1
