@@ -2,6 +2,9 @@
 
 set -e
 
+# Capture script directory at the very start (before any directory changes)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 echo "==============================================="
 echo "WM8960 Audio HAT Installation Script"
 echo "==============================================="
@@ -32,55 +35,32 @@ if dkms status | grep -q "wm8960-soundcard"; then
     dkms remove wm8960-soundcard/1.0 --all
 fi
 
-# Clone the kernel module source if not present
+# Copy kernel module source from local repository if not present
 if [ ! -d "/usr/src/wm8960-soundcard-1.0" ]; then
-    TEMP_DIR=$(mktemp -d)
-    cd "$TEMP_DIR"
-    echo "Cloning WM8960 kernel module source..."
-    git clone https://github.com/waveshareteam/WM8960-Audio-HAT.git
-    cd WM8960-Audio-HAT
+    echo "Copying WM8960 kernel module source from local repository..."
     
-    # Copy source to /usr/src for DKMS
-    mkdir -p /usr/src/wm8960-soundcard-1.0
-    # First attempt: copy specific module files if they exist
-    cp -r wm8960-soundcard.c wm8960-soundcard.h sound/ /usr/src/wm8960-soundcard-1.0/ 2>/dev/null || true
-    # Fallback: copy all source files (handles different repository structures)
-    cp -r *.c *.h Makefile /usr/src/wm8960-soundcard-1.0/ 2>/dev/null || true
+    # Verify local source files exist
+    if [ ! -d "$SCRIPT_DIR/kernel_module" ]; then
+        echo "Error: kernel_module directory not found in $SCRIPT_DIR"
+        exit 1
+    fi
     
-    # Verify required source files were copied
+    # Verify required source files are present
     echo "Verifying source files..."
-    required_files=("wm8960.c" "wm8960-soundcard.c" "Makefile")
+    required_files=("wm8960.c" "wm8960.h" "wm8960-soundcard.c" "Makefile" "dkms.conf")
     for file in "${required_files[@]}"; do
-        if [ ! -f "/usr/src/wm8960-soundcard-1.0/$file" ]; then
-            echo "Error: Required file $file not found in /usr/src/wm8960-soundcard-1.0/"
+        if [ ! -f "$SCRIPT_DIR/kernel_module/$file" ]; then
+            echo "Error: Required file $file not found in $SCRIPT_DIR/kernel_module/"
             exit 1
         fi
     done
     echo "All required source files present"
     
-    # Create dkms.conf if not present
-    if [ ! -f "/usr/src/wm8960-soundcard-1.0/dkms.conf" ]; then
-        cat > /usr/src/wm8960-soundcard-1.0/dkms.conf << 'EOF'
-PACKAGE_NAME="wm8960-soundcard"
-PACKAGE_VERSION="1.0"
-BUILT_MODULE_NAME[0]="snd-soc-wm8960"
-BUILT_MODULE_NAME[1]="snd-soc-wm8960-soundcard"
-DEST_MODULE_LOCATION[0]="/kernel/sound/soc/codecs"
-DEST_MODULE_LOCATION[1]="/kernel/sound/soc/bcm"
-AUTOINSTALL="yes"
-EOF
-    fi
+    # Copy source to /usr/src for DKMS
+    mkdir -p /usr/src/wm8960-soundcard-1.0
+    cp "$SCRIPT_DIR/kernel_module/"* /usr/src/wm8960-soundcard-1.0/
     
-    # Copy device tree overlay
-    echo "Copying device tree overlay..."
-    if [ -f "wm8960-soundcard.dtbo" ]; then
-        cp wm8960-soundcard.dtbo /boot/overlays/ 2>/dev/null || echo "Note: Could not copy device tree overlay (may already exist or be built-in)"
-    else
-        echo "Note: Device tree overlay not found in source (may be built into kernel)"
-    fi
-    
-    cd /
-    rm -rf "$TEMP_DIR"
+    echo "Kernel module source files copied successfully"
 else
     echo "DKMS source already present in /usr/src/wm8960-soundcard-1.0"
 fi
@@ -139,9 +119,6 @@ echo ""
 echo "Step 8/11: Installing ALSA configuration files..."
 # Create directory for WM8960 configuration
 mkdir -p /etc/wm8960-soundcard
-
-# Get script directory (portable method)
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Copy ALSA configuration files
 if [ -f "$SCRIPT_DIR/asound.conf" ]; then
