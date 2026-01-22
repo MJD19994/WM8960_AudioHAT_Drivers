@@ -62,6 +62,7 @@ echo "DKMS source files removed"
 echo ""
 echo "Step 8/9: Removing device tree overlay..."
 rm -f /boot/overlays/wm8960-soundcard.dtbo
+rm -f /boot/firmware/overlays/wm8960-soundcard.dtbo
 echo "Device tree overlay removed (if present)"
 
 echo ""

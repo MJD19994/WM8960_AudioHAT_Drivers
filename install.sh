@@ -56,9 +56,11 @@ if [ ! -d "/usr/src/wm8960-soundcard-1.0" ]; then
     done
     echo "All required source files present"
     
-    # Copy source to /usr/src for DKMS
+    # Copy only source files to /usr/src for DKMS (not binary .dtbo files)
     mkdir -p /usr/src/wm8960-soundcard-1.0
-    cp "$SCRIPT_DIR/kernel_module/"* /usr/src/wm8960-soundcard-1.0/
+    for file in "${required_files[@]}"; do
+        cp "$SCRIPT_DIR/kernel_module/$file" /usr/src/wm8960-soundcard-1.0/
+    done
     
     echo "Kernel module source files copied successfully"
 else
@@ -76,10 +78,42 @@ echo "Installing module with DKMS..."
 dkms install -m wm8960-soundcard -v 1.0
 
 echo ""
-echo "Step 5/11: Copying device tree overlay (if needed)..."
-# The overlay should already be copied in step 4, but ensure it's there
-if [ ! -f "/boot/overlays/wm8960-soundcard.dtbo" ]; then
-    echo "Warning: Device tree overlay not found. This may be built into the kernel."
+echo "Step 5/11: Copying device tree overlay..."
+# Verify the dtbo file exists in the repository
+if [ ! -f "$SCRIPT_DIR/kernel_module/wm8960-soundcard.dtbo" ]; then
+    echo "Error: wm8960-soundcard.dtbo not found in $SCRIPT_DIR/kernel_module/"
+    exit 1
+fi
+
+# Detect boot partition location
+if [ -d "/boot/firmware/overlays" ]; then
+    BOOT_OVERLAYS="/boot/firmware/overlays"
+elif [ -d "/boot/overlays" ]; then
+    BOOT_OVERLAYS="/boot/overlays"
+else
+    # If neither exists, check which boot firmware location is in use
+    if [ -d "/boot/firmware" ]; then
+        BOOT_OVERLAYS="/boot/firmware/overlays"
+        echo "Note: Boot firmware overlays directory not found, will create $BOOT_OVERLAYS"
+    else
+        BOOT_OVERLAYS="/boot/overlays"
+        echo "Note: Boot overlays directory not found, will create $BOOT_OVERLAYS"
+    fi
+fi
+
+# Create overlays directory if it doesn't exist
+mkdir -p "$BOOT_OVERLAYS"
+
+# Copy the device tree overlay
+echo "Copying wm8960-soundcard.dtbo to $BOOT_OVERLAYS/..."
+cp "$SCRIPT_DIR/kernel_module/wm8960-soundcard.dtbo" "$BOOT_OVERLAYS/"
+
+# Verify the copy was successful
+if [ -f "$BOOT_OVERLAYS/wm8960-soundcard.dtbo" ]; then
+    echo "Device tree overlay copied successfully"
+else
+    echo "Error: Failed to copy device tree overlay"
+    exit 1
 fi
 
 echo ""
