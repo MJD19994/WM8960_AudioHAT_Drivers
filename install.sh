@@ -1,10 +1,24 @@
 #!/bin/bash
 
-# Install necessary dependencies
-sudo apt-get update
-sudo apt-get install -y python3-dev python3-pip
+# Update package list
+apt-get update
 
-# Install Linux headers
-sudo apt-get install -y linux-headers-$(uname -r)
+# Install dependencies
+apt-get -y install python3 python3-pip git
 
-# Additional installation steps...
+# Install Raspberry Pi kernel headers (modified line 27)
+apt-get -y install linux-headers-$(uname -r)
+
+# Clone the repository
+if [ ! -d "WM8960_AudioHAT_Drivers" ]; then
+    git clone https://github.com/MJD19994/WM8960_AudioHAT_Drivers.git
+fi
+
+# Change to directory
+cd WM8960_AudioHAT_Drivers
+
+# Install drivers
+pip3 install .
+
+# Clean up
+apt-get -y clean
