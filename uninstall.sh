@@ -44,7 +44,12 @@ echo ""
 echo "Step 6/9: Removing DKMS kernel module..."
 if dkms status | grep -q "wm8960-soundcard"; then
     dkms remove wm8960-soundcard/1.0 --all
-    echo "DKMS module removed"
+    # Verify removal was successful
+    if ! dkms status | grep -q "wm8960-soundcard"; then
+        echo "DKMS package successfully removed"
+    else
+        echo "Warning: DKMS package may still be partially installed"
+    fi
 else
     echo "DKMS module not found, skipping..."
 fi

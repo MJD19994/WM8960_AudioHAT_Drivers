@@ -29,7 +29,7 @@ echo "Step 4/11: Compiling and installing wm8960-soundcard kernel module via DKM
 # Check if DKMS module is already installed
 if dkms status | grep -q "wm8960-soundcard"; then
     echo "DKMS module already installed, removing old version..."
-    dkms remove wm8960-soundcard/1.0 --all 2>/dev/null || true
+    dkms remove wm8960-soundcard/1.0 --all
 fi
 
 # Clone the kernel module source if not present
@@ -47,15 +47,26 @@ if [ ! -d "/usr/src/wm8960-soundcard-1.0" ]; then
     # Fallback: copy all source files (handles different repository structures)
     cp -r *.c *.h Makefile /usr/src/wm8960-soundcard-1.0/ 2>/dev/null || true
     
+    # Verify required source files were copied
+    echo "Verifying source files..."
+    required_files=("wm8960.c" "wm8960-soundcard.c" "Makefile")
+    for file in "${required_files[@]}"; do
+        if [ ! -f "/usr/src/wm8960-soundcard-1.0/$file" ]; then
+            echo "Error: Required file $file not found in /usr/src/wm8960-soundcard-1.0/"
+            exit 1
+        fi
+    done
+    echo "All required source files present"
+    
     # Create dkms.conf if not present
     if [ ! -f "/usr/src/wm8960-soundcard-1.0/dkms.conf" ]; then
         cat > /usr/src/wm8960-soundcard-1.0/dkms.conf << 'EOF'
 PACKAGE_NAME="wm8960-soundcard"
 PACKAGE_VERSION="1.0"
-CLEAN="make clean"
-MAKE[0]="make -C ${kernel_source_dir} M=${dkms_tree}/${PACKAGE_NAME}/${PACKAGE_VERSION}/build modules"
-BUILT_MODULE_NAME[0]="wm8960-soundcard"
-DEST_MODULE_LOCATION[0]="/kernel/sound/soc/bcm"
+BUILT_MODULE_NAME[0]="snd-soc-wm8960"
+BUILT_MODULE_NAME[1]="snd-soc-wm8960-soundcard"
+DEST_MODULE_LOCATION[0]="/kernel/sound/soc/codecs"
+DEST_MODULE_LOCATION[1]="/kernel/sound/soc/bcm"
 AUTOINSTALL="yes"
 EOF
     fi
