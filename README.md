@@ -11,12 +11,29 @@ This repository contains drivers and configuration for the WM8960 Audio HAT for 
 - Service-based initialization for proper boot sequencing
 
 ## Prerequisites
-- Raspberry Pi (any model with 40-pin GPIO header)
-- WM8960 Audio HAT hardware
-- Raspberry Pi OS (Raspbian) installed
-- Internet connection for downloading dependencies
-- Basic knowledge of using the terminal
-- Root/sudo access
+
+Before installing the WM8960 Audio HAT drivers, ensure you have:
+
+- **Hardware:**
+  - Raspberry Pi (any model with 40-pin GPIO header)
+  - WM8960 Audio HAT hardware properly seated on GPIO pins
+  
+- **Software:**
+  - Raspberry Pi OS (Raspbian) installed (32-bit or 64-bit)
+  - Internet connection for downloading dependencies
+  - Root/sudo access
+  
+- **System Preparation:**
+
+First, update your system and install git:
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+sudo apt install git -y
+```
+
+**Note:** The `apt update` and `apt upgrade` steps are essential for ensuring your kernel and package database are current before driver installation.
 
 ## Installation Steps
 
@@ -53,11 +70,19 @@ sudo ./install.sh
 ```
 
 The installation script will:
-- Update package lists
-- Install required dependencies (Python 3, pip3, git)
-- Install Linux kernel headers for your current kernel
-- Install the WM8960 driver Python package
-- Clean up package cache
+1. Update package lists with `apt update`
+2. Install Linux kernel headers for the current kernel (`linux-headers-$(uname -r)`)
+3. Install DKMS (Dynamic Kernel Module Support)
+4. Install required packages: git, i2c-tools, and ALSA plugins
+5. Clone and compile the wm8960-soundcard kernel module via DKMS
+6. Copy the device tree overlay to `/boot/overlays/`
+7. Configure kernel modules in `/etc/modules` (add i2c-dev)
+8. Enable I2C and I2S in `/boot/firmware/config.txt`
+9. Install ALSA configuration files to `/etc/wm8960-soundcard/`
+10. Install the systemd service script to `/usr/bin/wm8960-soundcard`
+11. Install and enable the systemd service
+
+**Note:** The script does NOT add `dtoverlay=wm8960-soundcard` to config.txt - the overlay is loaded dynamically by the service for better reliability.
 
 ### 6. Reboot System
 After installation completes, reboot your Raspberry Pi:
@@ -67,56 +92,139 @@ sudo reboot
 
 ## Verification Procedures
 
-After rebooting, perform the following checks to verify the installation:
+After rebooting, perform the following checks to verify the installation. All seven checks should pass for a successful installation:
 
 ### Check 1: Service Status
-Verify the WM8960 service is active:
+Verify the WM8960 service is active and loaded successfully:
 ```bash
 sudo systemctl status wm8960-soundcard.service
 ```
-**Expected output:** Service should show as "active (exited)" with no errors.
+**Expected output:** 
+- Service should show as "active (exited)" with green dot
+- Status should indicate "Loaded: loaded" and "Active: active (exited)"
+- No error messages in the service log output
+- Example: `Active: active (exited) since ...`
 
 ### Check 2: I2C Device Detection
 Check if the WM8960 codec is detected on the I2C bus:
 ```bash
 sudo i2cdetect -y 1
 ```
-**Expected output:** You should see "1a" or "UU" at address 0x1a in the grid.
+**Expected output:** 
+- A grid showing I2C addresses
+- You should see "1a" or "UU" at address 0x1a (row 10, column a)
+- "1a" means device detected but not in use by a driver
+- "UU" means device detected and in use by a driver (preferred)
+- Example:
+  ```
+       0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+  00:          -- -- -- -- -- -- -- -- -- -- -- -- -- 
+  10: -- -- -- -- -- -- -- -- -- -- UU -- -- -- -- -- 
+  20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+  ```
 
 ### Check 3: Kernel Module
-Verify the sound card driver overlay is loaded:
+Verify the sound card driver modules are loaded:
 ```bash
 lsmod | grep snd_soc
 ```
-**Expected output:** Multiple snd_soc modules should be listed.
+**Expected output:** 
+- Multiple snd_soc modules should be listed
+- Should include entries like:
+  - `snd_soc_wm8960` - The WM8960 codec driver
+  - `snd_soc_core` - ALSA SoC core
+  - `snd_soc_bcm2835_i2s` - Raspberry Pi I2S interface
+- Example:
+  ```
+  snd_soc_wm8960_soundcard    16384  0
+  snd_soc_wm8960             40960  1
+  snd_soc_bcm2835_i2s        20480  2
+  snd_soc_core              200000  3
+  ```
 
 ### Check 4: Sound Cards
 List all available sound cards:
 ```bash
 cat /proc/asound/cards
 ```
-**Expected output:** Should show "wm8960soundcard" among the listed cards.
+**Expected output:** 
+- Should show "wm8960soundcard" in the list
+- Typically appears as card 0, 1, or 2 depending on other audio hardware
+- Example:
+  ```
+   0 [vc4hdmi       ]: vc4-hdmi - vc4-hdmi
+                      vc4-hdmi
+   1 [wm8960soundcard]: wm8960-soundcard - wm8960-soundcard
+                      wm8960-soundcard
+  ```
 
 ### Check 5: Playback Devices
-Check available playback devices:
+Check available playback (speaker/headphone) devices:
 ```bash
 aplay -l
 ```
-**Expected output:** Should list the WM8960 sound card with available playback devices.
+**Expected output:** 
+- Should list the WM8960 sound card with available playback devices
+- Shows card number, device number, and subdevices
+- Example:
+  ```
+  card 1: wm8960soundcard [wm8960-soundcard], device 0: bcm2835-i2s-wm8960-hifi wm8960-hifi-0 [bcm2835-i2s-wm8960-hifi wm8960-hifi-0]
+    Subdevices: 1/1
+    Subdevice #0: subdevice #0
+  ```
 
 ### Check 6: Recording Devices
-Check available recording devices:
+Check available recording (microphone) devices:
 ```bash
 arecord -l
 ```
-**Expected output:** Should list the WM8960 sound card with available capture devices.
+**Expected output:** 
+- Should list the WM8960 sound card with available capture devices
+- Shows card number and capture capabilities
+- Example:
+  ```
+  card 1: wm8960soundcard [wm8960-soundcard], device 0: bcm2835-i2s-wm8960-hifi wm8960-hifi-0 [bcm2835-i2s-wm8960-hifi wm8960-hifi-0]
+    Subdevices: 1/1
+    Subdevice #0: subdevice #0
+  ```
 
 ### Check 7: Service Logs
 Review the initialization logs for any issues:
 ```bash
 sudo cat /var/log/wm8960-soundcard.log
 ```
-**Expected output:** Log should show successful codec detection and configuration file creation without errors.
+**Expected output:** 
+- Log should show successful codec detection at I2C address 0x1a
+- Should contain "install wm8960-soundcard" message
+- Should show successful configuration file creation
+- Should end with "WM8960 service initialization complete"
+- No error messages or warnings about missing devices
+- Example log entries:
+  ```
+  + i2cdetect -y 1 0x1a 0x1a
+  + is_1a=1a
+  + echo 'install wm8960-soundcard'
+  install wm8960-soundcard
+  + dtoverlay wm8960-soundcard
+  + echo 'create wm8960-soundcard configure file'
+  create wm8960-soundcard configure file
+  + echo WM8960 service initialization complete
+  WM8960 service initialization complete
+  ```
+
+### Additional Check: DKMS Status
+Verify the DKMS module is properly installed:
+```bash
+sudo dkms status
+```
+**Expected output:**
+- Should show wm8960-soundcard module installed for your kernel version
+- Example:
+  ```
+  wm8960-soundcard/1.0, 5.15.84-v8+, aarch64: installed
+  ```
+
+If all seven checks pass, your WM8960 Audio HAT is properly installed and ready to use!
 
 ## Configuration Files
 
@@ -391,7 +499,7 @@ For additional troubleshooting information, see [TROUBLESHOOTING.md](TROUBLESHOO
 
 ## Uninstallation
 
-To remove the WM8960 drivers from your system:
+To completely remove the WM8960 drivers and all related files from your system:
 
 ### 1. Make Uninstallation Script Executable
 **Important:** You must make the script executable before running it:
@@ -406,35 +514,32 @@ sudo ./uninstall.sh
 ```
 
 The uninstallation script will:
-- Create a backup of `/boot/firmware/config.txt`
-- Remove WM8960-related overlay entries from config.txt
-- Display confirmation message
+1. Stop and disable the wm8960-soundcard systemd service
+2. Remove systemd service files from `/etc/systemd/system/` and `/usr/bin/`
+3. Remove ALSA configuration symlinks (`/etc/asound.conf`, `/var/lib/alsa/asound.state`)
+4. Remove the ALSA configuration directory (`/etc/wm8960-soundcard/`)
+5. Remove the service log file (`/var/log/wm8960-soundcard.log`)
+6. Remove the DKMS kernel module
+7. Remove DKMS source files from `/usr/src/wm8960-soundcard-1.0/`
+8. Remove the device tree overlay from `/boot/overlays/`
+9. Clean up any WM8960 entries from `/boot/firmware/config.txt` (with backup)
 
 ### 3. Manual Cleanup (Optional)
 
-If you want to completely remove all WM8960 files:
+The uninstallation script preserves some system-level settings that may be used by other software. If you want to completely remove everything:
 
 ```bash
-# Stop and disable the service
-sudo systemctl stop wm8960-soundcard.service
-sudo systemctl disable wm8960-soundcard.service
+# Remove I2C and I2S parameters from config.txt (edit manually)
+sudo nano /boot/firmware/config.txt
+# Remove lines: dtparam=i2c_arm=on and dtparam=i2s=on
 
-# Remove service files
-sudo rm -f /etc/systemd/system/wm8960-soundcard.service
-sudo rm -f /usr/bin/wm8960-soundcard
+# Remove i2c-dev from /etc/modules (edit manually)
+sudo nano /etc/modules
+# Remove line: i2c-dev
 
-# Remove configuration files
-sudo rm -rf /etc/wm8960-soundcard
-
-# Remove symlinks
-sudo rm -f /etc/asound.conf
-sudo rm -f /var/lib/alsa/asound.state
-
-# Remove log file
-sudo rm -f /var/log/wm8960-soundcard.log
-
-# Reload systemd
-sudo systemctl daemon-reload
+# Optionally remove packages (only if not needed by other software)
+sudo apt-get remove --purge dkms i2c-tools libasound2-plugins
+sudo apt-get autoremove
 ```
 
 ### 4. Reboot
@@ -442,6 +547,11 @@ Reboot your system to complete the removal:
 ```bash
 sudo reboot
 ```
+
+After rebooting, verify the removal:
+- Check DKMS status: `sudo dkms status` (should not show wm8960-soundcard)
+- Check sound cards: `cat /proc/asound/cards` (should not show wm8960soundcard)
+- Check service status: `sudo systemctl status wm8960-soundcard.service` (should show "not found")
 
 ## License
 
