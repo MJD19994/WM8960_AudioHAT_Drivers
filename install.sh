@@ -6,7 +6,7 @@ apt-get update
 # Install dependencies
 apt-get -y install python3 python3-pip git
 
-# Install Raspberry Pi kernel headers (modified line 27)
+# Install Linux kernel headers for the current kernel
 apt-get -y install linux-headers-$(uname -r)
 
 # Clone the repository
