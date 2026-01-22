@@ -1,18 +1,10 @@
 #!/bin/bash
 
-# Update: Fix kernel headers package issue
-# Using linux-headers-$(uname -r) instead of raspberrypi-kernel-headers
+# Install script for WM8960 AudioHAT Drivers
 
-# Get required packages
-sudo apt-get update
-sudo apt-get install -y linux-headers-$(uname -r) \
-    build-essential \
-    alsa-utils \
-    libasound2-dev
+# Update package list
+apt-get update
 
-# Install WM8960 driver
-# (Add the original commands and script functionality here)
-# Original installation script lines reinstated
-
-# Print completion message
-echo "Installation completed successfully."
+# Install necessary packages
+apt-get -y install linux-headers-$(uname -r)
+# other installation commands...
