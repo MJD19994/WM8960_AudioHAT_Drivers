@@ -52,10 +52,10 @@ if [ ! -d "/usr/src/wm8960-soundcard-1.0" ]; then
         cat > /usr/src/wm8960-soundcard-1.0/dkms.conf << 'EOF'
 PACKAGE_NAME="wm8960-soundcard"
 PACKAGE_VERSION="1.0"
-CLEAN="make clean"
-MAKE[0]="make -C ${kernel_source_dir} M=${dkms_tree}/${PACKAGE_NAME}/${PACKAGE_VERSION}/build modules"
-BUILT_MODULE_NAME[0]="wm8960-soundcard"
-DEST_MODULE_LOCATION[0]="/kernel/sound/soc/bcm"
+BUILT_MODULE_NAME[0]="snd-soc-wm8960"
+BUILT_MODULE_NAME[1]="snd-soc-wm8960-soundcard"
+DEST_MODULE_LOCATION[0]="/kernel/sound/soc/codecs"
+DEST_MODULE_LOCATION[1]="/kernel/sound/soc/bcm"
 AUTOINSTALL="yes"
 EOF
     fi
