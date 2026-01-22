@@ -280,24 +280,54 @@ The WM8960 driver uses **dynamic loading** instead of static loading in `/boot/f
 
 4. **No Detection Logic:** Static loading doesn't verify the codec is present before attempting to load drivers.
 
+5. **Driver Registration Conflicts:** The WM8960 driver registers as `asoc-simple-card`, which conflicts with Raspberry Pi's built-in simple-audio-card driver if both try to register simultaneously.
+
+### Device Tree Overlay Conflict Resolution
+
+#### The Problem:
+
+The WM8960 kernel module registers using the platform driver alias `asoc-simple-card` (see `kernel_module/wm8960-soundcard.c`, line 775). This is the same name used by Raspberry Pi's built-in simple-audio-card driver that handles the default `/sound` node in the device tree.
+
+When both drivers try to register, you get this error in `dmesg`:
+```
+Error: Driver 'asoc-simple-card' is already registered, aborting...
+```
+
+This prevents the `snd_soc_wm8960_soundcard` kernel module from loading, causing audio playback to fail.
+
+#### Our Solution:
+
+The installation and service scripts handle this conflict in multiple ways:
+
+1. **I2S-MMAP Overlay:** The installation script (`install.sh`) configures `dtoverlay=i2s-mmap` instead of `dtparam=i2s=on` in `/boot/firmware/config.txt`. This provides the proper I2S memory-mapped interface required by the WM8960 codec.
+
+2. **Dynamic Overlay Loading:** The WM8960 overlay is NOT loaded in `config.txt` but dynamically by the service script after boot, when we can control the loading sequence.
+
+3. **Sound Node Disabling:** The service script (`wm8960-soundcard.sh`) disables the default `/sound` node using `dtparam -R sound` before loading the WM8960 overlay. This prevents the built-in driver from registering first.
+
+4. **Codec Detection:** The overlay is only loaded after confirming the WM8960 codec is detected on the I2C bus at address 0x1a.
+
 ### How Our Solution Works:
 
 1. **Service-Based Initialization:** The `wm8960-soundcard.service` runs after network-online.target, ensuring proper boot sequence.
 
-2. **I2C Detection:** The service script (`wm8960-soundcard.sh`) actively detects the codec on I2C bus 1 at address 0x1a with multiple retry attempts.
+2. **I2C Detection:** The service script (`wm8960-soundcard.sh`) actively detects the codec on I2C bus 1 at address 0x1a with multiple retry attempts (up to 5 attempts with delays).
 
-3. **Conditional Loading:** The overlay is only loaded via `dtoverlay` command if the codec is successfully detected.
+3. **Conflict Prevention:** Before loading the WM8960 overlay, the script disables any existing `/sound` node to prevent driver registration conflicts.
 
-4. **Configuration Management:** After successful detection, the service creates proper symlinks for ALSA configuration files.
+4. **Conditional Loading:** The overlay is only loaded via `dtoverlay` command if the codec is successfully detected and conflicts are resolved.
 
-5. **Graceful Failure:** If the codec isn't detected, the service completes without errors, allowing the system to boot normally.
+5. **Configuration Management:** After successful detection, the service creates proper symlinks for ALSA configuration files, ensuring mixer settings are applied correctly.
+
+6. **Graceful Failure:** If the codec isn't detected, the service exits with an error code, making it easy to diagnose hardware issues.
 
 This approach provides:
-- More reliable hardware detection
-- Better error handling
-- Cleaner boot process
-- Easier troubleshooting
-- Support for hot-plugging (if hardware allows)
+- **No driver conflicts:** By controlling load order and disabling conflicting nodes
+- **Reliable hardware detection:** Multiple detection attempts with proper delays
+- **Better error handling:** Clear error messages if hardware isn't found
+- **Cleaner boot process:** No kernel warnings or registration errors
+- **Easier troubleshooting:** Service logs show exactly what happened during initialization
+- **Proper I2S interface:** Using i2s-mmap overlay for memory-mapped I2S access
 
 ## Advanced Configuration
 
