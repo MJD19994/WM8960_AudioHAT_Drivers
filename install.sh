@@ -56,9 +56,11 @@ if [ ! -d "/usr/src/wm8960-soundcard-1.0" ]; then
     done
     echo "All required source files present"
     
-    # Copy source to /usr/src for DKMS
+    # Copy only source files to /usr/src for DKMS (not binary .dtbo files)
     mkdir -p /usr/src/wm8960-soundcard-1.0
-    cp "$SCRIPT_DIR/kernel_module/"* /usr/src/wm8960-soundcard-1.0/
+    for file in "${required_files[@]}"; do
+        cp "$SCRIPT_DIR/kernel_module/$file" /usr/src/wm8960-soundcard-1.0/
+    done
     
     echo "Kernel module source files copied successfully"
 else
@@ -84,9 +86,14 @@ if [ ! -f "$SCRIPT_DIR/kernel_module/wm8960-soundcard.dtbo" ]; then
 fi
 
 # Detect boot partition location
-BOOT_OVERLAYS="/boot/overlays"
 if [ -d "/boot/firmware/overlays" ]; then
     BOOT_OVERLAYS="/boot/firmware/overlays"
+elif [ -d "/boot/overlays" ]; then
+    BOOT_OVERLAYS="/boot/overlays"
+else
+    # If neither exists, default to /boot/overlays and create it
+    BOOT_OVERLAYS="/boot/overlays"
+    echo "Note: Boot overlays directory not found, will create $BOOT_OVERLAYS"
 fi
 
 # Create overlays directory if it doesn't exist
