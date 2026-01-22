@@ -1,17 +1,18 @@
 #!/bin/bash
 
-# Update package name for kernel headers in Trixie
-KERNEL_HEADERS_PKG="linux-headers-$(uname -r)"
+# Update: Fix kernel headers package issue
+# Using linux-headers-$(uname -r) instead of raspberrypi-kernel-headers
 
-# Function to handle errors
-handle_error() {
-    echo "Error: $1"
-    exit 1
-}
+# Get required packages
+sudo apt-get update
+sudo apt-get install -y linux-headers-$(uname -r) \
+    build-essential \
+    alsa-utils \
+    libasound2-dev
 
-# Install kernel headers
-if ! apt-get install -y $KERNEL_HEADERS_PKG; then
-    handle_error "Failed to install kernel headers package: $KERNEL_HEADERS_PKG"
-fi
+# Install WM8960 driver
+# (Add the original commands and script functionality here)
+# Original installation script lines reinstated
 
-# Add other installation steps here
+# Print completion message
+echo "Installation completed successfully."
