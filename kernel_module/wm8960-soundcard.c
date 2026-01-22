@@ -760,9 +760,9 @@ static const struct of_device_id simple_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, simple_of_match);
 
-static struct platform_driver asoc_simple_card = {
+static struct platform_driver asoc_wm8960_soundcard = {
 	.driver = {
-		.name = "asoc-simple-card",
+		.name = "asoc-wm8960-soundcard",
 		.pm = &snd_soc_pm_ops,
 		.of_match_table = simple_of_match,
 	},
@@ -770,9 +770,9 @@ static struct platform_driver asoc_simple_card = {
 	.remove = simple_util_remove,
 };
 
-module_platform_driver(asoc_simple_card);
+module_platform_driver(asoc_wm8960_soundcard);
 
-MODULE_ALIAS("platform:asoc-simple-card");
+MODULE_ALIAS("platform:asoc-wm8960-soundcard");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("ASoC wm8960 Sound Card");
 MODULE_AUTHOR("Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>");
