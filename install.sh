@@ -42,7 +42,9 @@ if [ ! -d "/usr/src/wm8960-soundcard-1.0" ]; then
     
     # Copy source to /usr/src for DKMS
     mkdir -p /usr/src/wm8960-soundcard-1.0
+    # First attempt: copy specific module files if they exist
     cp -r wm8960-soundcard.c wm8960-soundcard.h sound/ /usr/src/wm8960-soundcard-1.0/ 2>/dev/null || true
+    # Fallback: copy all source files (handles different repository structures)
     cp -r *.c *.h Makefile /usr/src/wm8960-soundcard-1.0/ 2>/dev/null || true
     
     # Create dkms.conf if not present
@@ -60,7 +62,11 @@ EOF
     
     # Copy device tree overlay
     echo "Copying device tree overlay..."
-    cp wm8960-soundcard.dtbo /boot/overlays/ 2>/dev/null || echo "Note: Device tree overlay may already exist or is built-in"
+    if [ -f "wm8960-soundcard.dtbo" ]; then
+        cp wm8960-soundcard.dtbo /boot/overlays/ 2>/dev/null || echo "Note: Could not copy device tree overlay (may already exist or be built-in)"
+    else
+        echo "Note: Device tree overlay not found in source (may be built into kernel)"
+    fi
     
     cd /
     rm -rf "$TEMP_DIR"
@@ -123,8 +129,8 @@ echo "Step 8/11: Installing ALSA configuration files..."
 # Create directory for WM8960 configuration
 mkdir -p /etc/wm8960-soundcard
 
-# Get script directory
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Get script directory (portable method)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Copy ALSA configuration files
 if [ -f "$SCRIPT_DIR/asound.conf" ]; then

@@ -71,7 +71,8 @@ cp "$CONFIG_FILE" "${CONFIG_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
 
 # Remove WM8960-related overlay entries (if any were manually added)
 sed -i '/^dtoverlay=wm8960-soundcard/d' "$CONFIG_FILE"
-sed -i '/^#.*wm8960/d' "$CONFIG_FILE"
+# Remove only wm8960-soundcard specific comments
+sed -i '/^#.*wm8960-soundcard/d' "$CONFIG_FILE"
 
 echo "Config.txt cleaned (backup created)"
 
