@@ -140,10 +140,25 @@ if ! grep -q "^dtparam=i2c_arm=on" "$CONFIG_FILE"; then
     echo "Enabled I2C in config.txt"
 fi
 
-# Enable I2S
-if ! grep -q "^dtparam=i2s=on" "$CONFIG_FILE"; then
-    echo "dtparam=i2s=on" >> "$CONFIG_FILE"
-    echo "Enabled I2S in config.txt"
+# Enable I2S-MMAP (required for proper I2S memory-mapped interface)
+# Remove old dtparam=i2s=on if present
+if grep -q "^dtparam=i2s=on" "$CONFIG_FILE"; then
+    sed -i 's/^dtparam=i2s=on/#dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap/' "$CONFIG_FILE"
+    echo "Replaced dtparam=i2s=on with dtoverlay=i2s-mmap"
+fi
+
+# Add dtoverlay=i2s-mmap if not present
+if ! grep -q "^dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
+    echo "dtoverlay=i2s-mmap" >> "$CONFIG_FILE"
+    echo "Enabled I2S-MMAP overlay in config.txt"
+fi
+
+# Disable default /sound node to prevent driver conflicts
+# This prevents the built-in simple-audio-card driver from registering
+if ! grep -q "^dtoverlay=disable-bt" "$CONFIG_FILE"; then
+    # Add comment explaining the sound node disabling
+    echo "" >> "$CONFIG_FILE"
+    echo "# Disable default /sound node to prevent asoc-simple-card driver conflict" >> "$CONFIG_FILE"
 fi
 
 # Note: We do NOT add dtoverlay=wm8960-soundcard here - loaded dynamically by service
