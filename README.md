@@ -1,76 +1,70 @@
 # WM8960 Audio HAT Drivers
 
-## Overview
-The WM8960 Audio HAT Drivers provide necessary software support for interfacing with the WM8960 audio codec, offering high-quality audio playback and recording capabilities for Raspberry Pi and similar platforms.
+## Introduction
+This repository provides the drivers for the WM8960 Audio HAT, supporting audio applications on various platforms.
 
-## Table of Contents
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [Troubleshooting](#troubleshooting)
+## System Update and Build Tools Installation
+1. **Updating the System**: Before proceeding, ensure your system is up to date. Run the following commands based on your Linux distribution:
+   - For Ubuntu/Debian:
+     ```bash
+     sudo apt update && sudo apt upgrade
+     ```
+   - For Fedora:
+     ```bash
+     sudo dnf update
+     ```
+2. **Install Build Tools**: Ensure you have the essential build tools installed:
+   - For Ubuntu/Debian:
+     ```bash
+     sudo apt install build-essential git
+     ```
+   - For Fedora:
+     ```bash
+     sudo dnf groupinstall "Development Tools"
+     ```
+3. **Install Additional Libraries**: Depending on your project requirements, you might need additional libraries. Check the project's documentation for specific dependencies.
 
-## Installation
-
-### Prerequisites
-- Raspberry Pi or compatible device
-- Raspbian or another Linux distribution installed
-- Kernel headers for your Linux version
-
-### Steps
-1. **Clone the repository**:
+## Git Installation Prerequisites
+1. **Check if Git is already installed**:
    ```bash
-   git clone https://github.com/MJD19994/WM8960_AudioHAT_Drivers.git
-   cd WM8960_AudioHAT_Drivers
+   git --version
    ```
-2. **Install dependencies**:
+   If Git is installed, you will see the version number.
+2. **Install Git**:
+   - For Ubuntu/Debian:
+     ```bash
+     sudo apt install git
+     ```
+   - For Fedora:
+     ```bash
+     sudo dnf install git
+     ```
+
+## Manual Download Option
+If you prefer not to use Git, you can manually download the repository:
+1. Go to the repository's GitHub page: [WM8960_AudioHAT_Drivers](https://github.com/MJD19994/WM8960_AudioHAT_Drivers)
+2. Click on the green "Code" button and select "Download ZIP".
+3. Extract the ZIP file to your desired directory.
+
+## Verification Steps
+After installation and setup, it’s crucial to verify that everything works as expected.
+1. **Verify Git Installation**:
+   Run the following command:
    ```bash
-   sudo apt-get update
-   sudo apt-get install build-essential git
+   git --version
    ```
-3. **Compile the drivers**:
+   Expected output:
+   ```
+   git version x.y.z
+   ```
+   (where x.y.z is the version you installed)
+2. **Verify Build Tools Installation**:
+   To check if build-essential is installed, run:
    ```bash
-   make
+   dpkg -l | grep build-essential
    ```
-4. **Install the drivers**:
-   ```bash
-   sudo make install
-   ```
+   Expected output includes build-essential package information.
 
-## Configuration
+## Conclusion
+By following the above instructions, you should be able to set up the WM8960 Audio HAT drivers successfully. If you encounter any issues, please refer to the project's documentation or open an issue on GitHub.
 
-### Device Tree Setup
-To use the WM8960 codec, you might need to set up the Device Tree (DT) overlay. Edit the `/boot/config.txt` file to add:
-```bash
-dtoverlay=wm8960-audio-hat
-```
-
-### ALSA Configuration
-Create or edit the ALSA configuration file:
-```bash
-sudo nano /etc/asound.conf
-```
-Add the following configuration:
-```plaintext
-pcm.!default {
-   type hw
-   card 0
-}
-
-ctl.!default {
-   type hw
-   card 0
-}
-```
-
-## Usage
-After installation and configuration, you can test audio playback using the following command:
-```bash
-aplay /path/to/audio/file.wav
-```
-
-## Troubleshooting
-- If you encounter issues with playback, ensure that the drivers are properly installed and check the logs for errors.
-- Ensure that the audio file format is supported by ALSA.
-
-## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
