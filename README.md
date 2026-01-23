@@ -280,32 +280,28 @@ The WM8960 driver uses **dynamic loading** instead of static loading in `/boot/f
 
 4. **No Detection Logic:** Static loading doesn't verify the codec is present before attempting to load drivers.
 
-5. **Driver Registration Conflicts:** The WM8960 driver registers as `asoc-simple-card`, which conflicts with Raspberry Pi's built-in simple-audio-card driver if both try to register simultaneously.
-
 ### Device Tree Overlay Conflict Resolution
 
-#### The Problem:
+#### The Solution:
 
-The WM8960 kernel module registers using the platform driver alias `asoc-simple-card` (see `kernel_module/wm8960-soundcard.c`, line 775). This is the same name used by Raspberry Pi's built-in simple-audio-card driver that handles the default `/sound` node in the device tree.
+The WM8960 kernel module now uses a **unique platform driver name** (`asoc-wm8960-soundcard`) that does not conflict with Raspberry Pi's built-in audio drivers. This eliminates the need for workarounds.
 
-When both drivers try to register, you get this error in `dmesg`:
-```
-Error: Driver 'asoc-simple-card' is already registered, aborting...
-```
+#### Benefits of This Approach:
 
-This prevents the `snd_soc_wm8960_soundcard` kernel module from loading, causing audio playback to fail.
+- **Clean Design:** No naming conflicts with built-in drivers
+- **Reliable Operation:** No need to disable the default `/sound` node
+- **Simplified Installation:** Works out of the box without manual intervention
+- **Better Error Messages:** Clear indication if something goes wrong
+- **Follows Best Practices:** Uses unique, descriptive driver naming conventions
 
-#### Our Solution:
+#### Why Dynamic Loading?
 
-The installation and service scripts handle this conflict in multiple ways:
+While the driver name conflict is resolved, the WM8960 driver still uses **dynamic loading** instead of static loading in `/boot/firmware/config.txt` for other important reasons:
 
-1. **I2S-MMAP Overlay:** The installation script (`install.sh`) configures `dtoverlay=i2s-mmap` instead of `dtparam=i2s=on` in `/boot/firmware/config.txt`. This provides the proper I2S memory-mapped interface required by the WM8960 codec.
-
-2. **Dynamic Overlay Loading:** The WM8960 overlay is NOT loaded in `config.txt` but dynamically by the service script after boot, when we can control the loading sequence.
-
-3. **Sound Node Disabling:** The service script (`wm8960-soundcard.sh`) disables the default `/sound` node using `dtparam -R sound` before loading the WM8960 overlay. This prevents the built-in driver from registering first.
-
-4. **Codec Detection:** The overlay is only loaded after confirming the WM8960 codec is detected on the I2C bus at address 0x1a.
+1. **I2C Detection:** The service verifies the codec is present on the I2C bus before loading drivers
+2. **Proper Timing:** Allows time for the I2C bus and codec to be ready after boot
+3. **Graceful Failure:** If hardware isn't connected, the system boots normally without errors
+4. **Configuration Management:** Ensures ALSA configuration files are properly linked before audio initialization
 
 ### How Our Solution Works:
 
@@ -313,16 +309,16 @@ The installation and service scripts handle this conflict in multiple ways:
 
 2. **I2C Detection:** The service script (`wm8960-soundcard.sh`) actively detects the codec on I2C bus 1 at address 0x1a with multiple retry attempts (up to 5 attempts with delays).
 
-3. **Conflict Prevention:** Before loading the WM8960 overlay, the script disables any existing `/sound` node to prevent driver registration conflicts.
+3. **No Driver Conflicts:** The WM8960 driver uses the unique name `asoc-wm8960-soundcard`, avoiding any conflicts with built-in drivers.
 
-4. **Conditional Loading:** The overlay is only loaded via `dtoverlay` command if the codec is successfully detected and conflicts are resolved.
+4. **Conditional Loading:** The overlay is only loaded via `dtoverlay` command if the codec is successfully detected.
 
 5. **Configuration Management:** After successful detection, the service creates proper symlinks for ALSA configuration files, ensuring mixer settings are applied correctly.
 
 6. **Graceful Failure:** If the codec isn't detected, the service exits with an error code, making it easy to diagnose hardware issues.
 
 This approach provides:
-- **No driver conflicts:** By controlling load order and disabling conflicting nodes
+- **No driver conflicts:** By using a unique driver name
 - **Reliable hardware detection:** Multiple detection attempts with proper delays
 - **Better error handling:** Clear error messages if hardware isn't found
 - **Cleaner boot process:** No kernel warnings or registration errors

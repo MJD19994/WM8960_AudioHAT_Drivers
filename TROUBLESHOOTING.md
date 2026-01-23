@@ -2,55 +2,31 @@
 
 This document provides a comprehensive troubleshooting guide for common issues encountered with the WM8960 AudioHAT drivers.
 
-## 0. Device Tree Overlay Driver Conflict (CRITICAL)
-**Diagnosis:** Check dmesg for driver registration errors:
-```bash
-dmesg | grep "asoc-simple-card"
+## 0. Device Tree Overlay Driver Conflict (RESOLVED)
+**Status:** This issue has been resolved in the current version of the driver.
+
+**Historical Context:**
+Earlier versions of the WM8960 driver registered as `asoc-simple-card`, which conflicted with Raspberry Pi's built-in simple-audio-card driver for the default `/sound` node. This caused the error:
 ```
-**Symptoms:** 
-- Error message: `Error: Driver 'asoc-simple-card' is already registered, aborting...`
-- Module `snd_soc_wm8960_soundcard` fails to load
-- `lsmod | grep wm8960` shows no WM8960 modules
-- Audio playback doesn't work
+Error: Driver 'asoc-simple-card' is already registered, aborting...
+```
 
-**Root Cause:** The WM8960 driver registers as `asoc-simple-card`, which conflicts with Raspberry Pi's built-in simple-audio-card driver for the default `/sound` node.
+**Current Solution:**
+The driver now uses a unique platform driver name `asoc-wm8960-soundcard`, eliminating any naming conflicts with built-in drivers. No workarounds or manual configuration are needed.
 
-**Solution:** This should be automatically handled by the installation. If you still see this error:
-
-1. **Remove WM8960 overlay from config.txt** (if manually added):
-   ```bash
-   sudo nano /boot/firmware/config.txt
-   # Remove or comment out any line containing: dtoverlay=wm8960-soundcard
-   ```
-
-2. **Ensure I2S-MMAP is configured** (not dtparam=i2s):
-   ```bash
-   grep -E "i2s|i2c" /boot/firmware/config.txt
-   ```
-   Should show:
-   ```
-   dtparam=i2c_arm=on
-   dtoverlay=i2s-mmap
-   ```
-   If you see `dtparam=i2s=on` instead, replace it with `dtoverlay=i2s-mmap`
-
-3. **Check service logs** for conflict resolution:
-   ```bash
-   sudo cat /var/log/wm8960-soundcard.log
-   ```
-   Should show: `Disabling default /sound node to prevent driver conflict...`
-
-4. **Restart the service**:
-   ```bash
-   sudo systemctl restart wm8960-soundcard.service
-   ```
-
-5. **If problem persists, reinstall**:
+If you're upgrading from an older version and still see this error:
+1. **Reinstall the driver completely:**
    ```bash
    sudo ./uninstall.sh
    sudo ./install.sh
    sudo reboot
    ```
+
+2. **Verify the driver name in dmesg:**
+   ```bash
+   dmesg | grep wm8960
+   ```
+   You should see references to `asoc-wm8960-soundcard`, not `asoc-simple-card`.
 
 ## 1. Service Failures
 **Diagnosis:** Check system logs for errors related to audio services.  

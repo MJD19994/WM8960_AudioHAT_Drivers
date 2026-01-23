@@ -1,0 +1,24 @@
+# Kernel module build artifacts
+*.o
+*.ko
+*.mod
+*.mod.c
+*.o.d
+.*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+*.mod.cmd
+
+# CodeQL artifacts
+_codeql_detected_source_root
+
+# Backup files
+*.backup
+*~
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo

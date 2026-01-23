@@ -26,16 +26,9 @@ done
 if [ "x${is_1a}" != "x" ]; then
   echo "WM8960 codec detected at I2C address 0x1a"
   
-  # Disable the default /sound node to prevent asoc-simple-card driver conflict
-  # The WM8960 overlay registers as "asoc-simple-card" which conflicts with built-in driver
-  echo "Disabling default /sound node to prevent driver conflict..."
-  if [ -d "/proc/device-tree/sound" ]; then
-    # Use dtoverlay to disable the sound node if it exists
-    dtparam -R sound 2>/dev/null || echo "Note: Could not remove sound node (may not exist)"
-  fi
-  
   echo "Loading wm8960-soundcard overlay..."
   # Load the WM8960 overlay dynamically (ONLY HERE - not in config.txt)
+  # No need to disable /sound node - we use unique driver name "asoc-wm8960-soundcard"
   dtoverlay wm8960-soundcard
   sleep 1
   

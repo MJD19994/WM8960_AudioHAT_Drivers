@@ -153,11 +153,11 @@ if ! grep -q "^dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
     echo "Enabled I2S-MMAP overlay in config.txt"
 fi
 
-# Add informational comment about sound node conflict handling
-# This comment explains that the service will handle disabling the sound node dynamically
-if ! grep -q "Disable default /sound node" "$CONFIG_FILE"; then
+# Add informational comment about dynamic loading benefits
+# Dynamic loading allows for I2C detection and proper initialization timing
+if ! grep -q "Dynamic loading allows" "$CONFIG_FILE"; then
     echo "" >> "$CONFIG_FILE"
-    echo "# Note: Default /sound node conflicts are handled dynamically by wm8960-soundcard.service" >> "$CONFIG_FILE"
+    echo "# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection" >> "$CONFIG_FILE"
 fi
 
 # Note: We do NOT add dtoverlay=wm8960-soundcard here - loaded dynamically by service
