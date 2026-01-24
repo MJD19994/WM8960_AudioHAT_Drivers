@@ -222,9 +222,15 @@ if ! grep -qE "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
     if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
         # Insert after dtparam=i2c_arm=on if it exists, otherwise after [all] section header
         if grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
-            sed -i '/^[^#]*dtparam=i2c_arm=on/a dtoverlay=i2s-mmap' "$CONFIG_FILE"
+            if ! sed -i '/^[^#]*dtparam=i2c_arm=on/a dtoverlay=i2s-mmap' "$CONFIG_FILE"; then
+                echo "ERROR: Failed to add dtoverlay=i2s-mmap to config.txt"
+                exit 1
+            fi
         else
-            sed -i '/^[[:space:]]*\[all\]/a dtoverlay=i2s-mmap' "$CONFIG_FILE"
+            if ! sed -i '/^[[:space:]]*\[all\]/a dtoverlay=i2s-mmap' "$CONFIG_FILE"; then
+                echo "ERROR: Failed to add dtoverlay=i2s-mmap to config.txt"
+                exit 1
+            fi
         fi
         echo "Added dtoverlay=i2s-mmap to [all] section"
     else
