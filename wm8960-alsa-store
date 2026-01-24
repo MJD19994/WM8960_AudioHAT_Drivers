@@ -35,8 +35,9 @@ BACKUP_DIR="/var/lib/alsa"
 # during boot-time ALSA state restoration (see lines 78-88 of wm8960-soundcard.sh)
 BACKUP_PATTERN="asound.state.backup.*"
 
-# Count existing backups
+# Count existing backups (default to 0 if find fails)
 backup_count=$(find "$BACKUP_DIR" -name "$BACKUP_PATTERN" 2>/dev/null | wc -l)
+backup_count=${backup_count:-0}
 log_message "Found $backup_count existing backup file(s)"
 
 if [ "$backup_count" -gt 5 ]; then

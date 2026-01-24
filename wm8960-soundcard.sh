@@ -134,8 +134,9 @@ if [ "x${is_1a}" != "x" ]; then
   BACKUP_DIR="/var/lib/alsa"
   BACKUP_PATTERN="asound.state.backup.*"
   
-  # Count existing backups
+  # Count existing backups (default to 0 if find fails)
   backup_count=$(find "$BACKUP_DIR" -name "$BACKUP_PATTERN" 2>/dev/null | wc -l)
+  backup_count=${backup_count:-0}
   
   if [ "$backup_count" -gt 10 ]; then
     # Delete oldest backups, keeping last 10
