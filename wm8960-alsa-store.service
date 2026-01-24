@@ -1,0 +1,14 @@
+[Unit]
+Description=WM8960 ALSA State Auto-Save
+After=wm8960-soundcard.service
+Wants=wm8960-alsa-store.timer
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/wm8960-alsa-store
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wm8960-alsa-store
+
+[Install]
+WantedBy=multi-user.target

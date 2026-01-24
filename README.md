@@ -442,6 +442,83 @@ Save your settings:
 sudo alsactl store
 ```
 
+## Saving Audio Settings
+
+### Default Behavior: Manual Save
+
+By default, ALSA mixer settings (volume, mute state, etc.) **do not persist** across reboots unless you manually save them. This follows standard ALSA practice and gives you full control over when settings are saved.
+
+**To save your audio settings:**
+
+1. Configure your audio settings using `alsamixer` or other mixer tools:
+   ```bash
+   alsamixer
+   ```
+
+2. Save your settings manually:
+   ```bash
+   sudo alsactl store
+   ```
+
+Your settings will now persist across reboots.
+
+**Why manual save?**
+- Prevents accidental changes from being saved
+- Gives you explicit control over your saved configuration
+- Standard ALSA behavior that advanced users expect
+- Suitable for development and testing environments
+
+### Optional: Automatic Saving
+
+For consumer devices or users who want convenience, you can enable automatic saving of ALSA mixer settings. When enabled, the auto-save timer will:
+- Wait 30 minutes after boot (giving you time to configure settings)
+- Save settings every 6 hours thereafter
+- Automatically clean up old backup files (keeps last 5 backups)
+
+**To enable auto-save:**
+```bash
+sudo systemctl enable wm8960-alsa-store.timer
+sudo systemctl start wm8960-alsa-store.timer
+```
+
+**To disable auto-save:**
+```bash
+sudo systemctl stop wm8960-alsa-store.timer
+sudo systemctl disable wm8960-alsa-store.timer
+```
+
+**To check auto-save status:**
+```bash
+# Check if timer is enabled and when it will run next
+sudo systemctl status wm8960-alsa-store.timer
+
+# View auto-save logs
+sudo journalctl -u wm8960-alsa-store.service -n 50
+```
+
+**To manually trigger an auto-save:**
+```bash
+sudo systemctl start wm8960-alsa-store.service
+```
+
+### Backup Management
+
+The system automatically manages backup files to prevent disk space issues:
+
+- **Boot-time cleanup:** Keeps last 10 backups (for manual save users)
+- **Auto-save cleanup:** Keeps last 5 backups (for frequent save users)
+
+Backup files are stored in `/var/lib/alsa/` with names like `asound.state.backup.YYYYMMDD_HHMMSS`.
+
+You can safely delete old backups manually if needed:
+```bash
+# List all backup files
+ls -lh /var/lib/alsa/asound.state.backup.*
+
+# Delete backups older than 30 days (optional)
+find /var/lib/alsa/ -name "asound.state.backup.*" -mtime +30 -delete
+```
+
 ### Testing Audio Playback
 
 Test speaker output:

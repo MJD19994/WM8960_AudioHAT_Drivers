@@ -1,0 +1,12 @@
+[Unit]
+Description=WM8960 ALSA State Auto-Save Timer
+Requires=wm8960-alsa-store.service
+
+[Timer]
+OnBootSec=30min
+OnUnitActiveSec=6h
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

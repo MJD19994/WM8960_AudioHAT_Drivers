@@ -18,9 +18,18 @@ systemctl stop wm8960-soundcard.service 2>/dev/null || echo "Service not running
 systemctl disable wm8960-soundcard.service 2>/dev/null || echo "Service not enabled"
 
 echo ""
+echo "Step 1a/9: Stopping and disabling ALSA auto-save timer..."
+systemctl stop wm8960-alsa-store.timer 2>/dev/null || echo "Timer not running"
+systemctl disable wm8960-alsa-store.timer 2>/dev/null || echo "Timer not enabled"
+systemctl stop wm8960-alsa-store.service 2>/dev/null || echo "Auto-save service not running"
+
+echo ""
 echo "Step 2/9: Removing systemd service files..."
 rm -f /etc/systemd/system/wm8960-soundcard.service
 rm -f /usr/bin/wm8960-soundcard
+rm -f /etc/systemd/system/wm8960-alsa-store.service
+rm -f /etc/systemd/system/wm8960-alsa-store.timer
+rm -f /usr/bin/wm8960-alsa-store
 systemctl daemon-reload
 echo "Service files removed"
 

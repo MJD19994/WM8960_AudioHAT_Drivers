@@ -300,6 +300,33 @@ else
 fi
 
 echo ""
+echo "Step 10a/12: Installing ALSA auto-save components (disabled by default)..."
+# Copy auto-save script to /usr/bin
+if [ -f "$SCRIPT_DIR/wm8960-alsa-store" ]; then
+    cp "$SCRIPT_DIR/wm8960-alsa-store" /usr/bin/wm8960-alsa-store
+    chmod +x /usr/bin/wm8960-alsa-store
+    echo "Installed wm8960-alsa-store script"
+else
+    echo "Warning: wm8960-alsa-store script not found in script directory"
+fi
+
+# Copy auto-save service file
+if [ -f "$SCRIPT_DIR/wm8960-alsa-store.service" ]; then
+    cp "$SCRIPT_DIR/wm8960-alsa-store.service" /etc/systemd/system/
+    echo "Installed wm8960-alsa-store.service"
+else
+    echo "Warning: wm8960-alsa-store.service not found in script directory"
+fi
+
+# Copy auto-save timer file
+if [ -f "$SCRIPT_DIR/wm8960-alsa-store.timer" ]; then
+    cp "$SCRIPT_DIR/wm8960-alsa-store.timer" /etc/systemd/system/
+    echo "Installed wm8960-alsa-store.timer"
+else
+    echo "Warning: wm8960-alsa-store.timer not found in script directory"
+fi
+
+echo ""
 echo "Step 11/12: Enabling and starting systemd service..."
 systemctl daemon-reload
 systemctl enable wm8960-soundcard.service
@@ -364,6 +391,27 @@ echo "Installation Complete!"
 echo "==============================================="
 echo ""
 echo "IMPORTANT: You must reboot your Raspberry Pi for changes to take effect."
+echo ""
+echo "==============================================="
+echo "Audio Settings Management"
+echo "==============================================="
+echo ""
+echo "By default, audio mixer settings are NOT automatically saved."
+echo "After configuring your audio settings (volume, etc.), save them with:"
+echo "   sudo alsactl store"
+echo ""
+echo "OPTIONAL: Enable automatic saving every 6 hours:"
+echo "   sudo systemctl enable wm8960-alsa-store.timer"
+echo "   sudo systemctl start wm8960-alsa-store.timer"
+echo ""
+echo "To check auto-save status:"
+echo "   sudo systemctl status wm8960-alsa-store.timer"
+echo ""
+echo "See README.md 'Saving Audio Settings' section for more details."
+echo ""
+echo "==============================================="
+echo "Post-Installation Verification"
+echo "==============================================="
 echo ""
 echo "After rebooting, verify the installation with these commands:"
 echo ""

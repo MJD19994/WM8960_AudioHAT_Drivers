@@ -129,6 +129,29 @@ if [ "x${is_1a}" != "x" ]; then
     log_message "No saved ALSA state (first boot?)"
   fi
   
+  # Clean up old backup files at boot (keep last 10 for manual save users)
+  log_message "Cleaning up old ALSA backup files..."
+  BACKUP_DIR="/var/lib/alsa"
+  BACKUP_PATTERN="asound.state.backup.*"
+  
+  # Count existing backups
+  backup_count=$(find "$BACKUP_DIR" -name "$BACKUP_PATTERN" 2>/dev/null | wc -l)
+  
+  if [ "$backup_count" -gt 10 ]; then
+    # Delete oldest backups, keeping last 10
+    # Sort by modification time (oldest first), skip the 10 newest, delete the rest
+    find "$BACKUP_DIR" -name "$BACKUP_PATTERN" -type f -printf '%T+ %p\n' 2>/dev/null | \
+      sort | \
+      head -n -10 | \
+      cut -d' ' -f2- | \
+      while IFS= read -r file; do
+        rm -f "$file" 2>/dev/null && log_message "Deleted old backup: $(basename "$file")"
+      done
+    log_message "Boot-time cleanup complete - kept last 10 backups"
+  else
+    log_message "No boot-time cleanup needed (backup count: $backup_count, limit: 10)"
+  fi
+  
   # Health check: Verify audio system is working
   log_message "Performing health checks..."
   

@@ -1,0 +1,60 @@
+#!/bin/bash
+# WM8960 ALSA State Auto-Save Script
+# Saves ALSA mixer state and cleans up old backups
+
+# Function to log messages with timestamp
+log_message() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [wm8960-alsa-store] $1" >> /var/log/wm8960-soundcard.log
+}
+
+# Function to log error and exit
+log_error_exit() {
+  log_message "ERROR: $1"
+  exit "${2:-1}"
+}
+
+log_message "Starting ALSA state auto-save..."
+
+# Check if ALSA state file exists (verify audio system is initialized)
+if [ ! -f /var/lib/alsa/asound.state ]; then
+  log_error_exit "ALSA state file not found - audio system may not be initialized" 1
+fi
+
+# Save current ALSA mixer state
+log_message "Saving ALSA mixer state..."
+if alsactl store 2>/dev/null; then
+  log_message "ALSA mixer state saved successfully"
+else
+  log_error_exit "Failed to save ALSA mixer state" 2
+fi
+
+# Clean up old backup files (keep last 5 for auto-save users)
+log_message "Cleaning up old backup files..."
+BACKUP_DIR="/var/lib/alsa"
+BACKUP_PATTERN="asound.state.backup.*"
+
+# Count existing backups
+backup_count=$(find "$BACKUP_DIR" -name "$BACKUP_PATTERN" 2>/dev/null | wc -l)
+log_message "Found $backup_count existing backup file(s)"
+
+if [ "$backup_count" -gt 5 ]; then
+  # Delete oldest backups, keeping last 5
+  # Sort by modification time (oldest first), skip the 5 newest, delete the rest
+  find "$BACKUP_DIR" -name "$BACKUP_PATTERN" -type f -printf '%T+ %p\n' 2>/dev/null | \
+    sort | \
+    head -n -5 | \
+    cut -d' ' -f2- | \
+    while IFS= read -r file; do
+      if rm -f "$file" 2>/dev/null; then
+        log_message "Deleted old backup: $(basename "$file")"
+      else
+        log_message "WARNING: Failed to delete backup: $(basename "$file")"
+      fi
+    done
+  log_message "Cleanup complete - kept last 5 backups"
+else
+  log_message "No cleanup needed (backup count: $backup_count, limit: 5)"
+fi
+
+log_message "ALSA state auto-save completed successfully"
+exit 0
