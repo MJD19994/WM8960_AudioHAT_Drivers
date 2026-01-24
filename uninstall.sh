@@ -34,11 +34,10 @@ systemctl daemon-reload
 echo "Service files removed"
 
 echo ""
-echo "Step 4/10: Removing ALSA configuration symlinks and backups..."
+echo "Step 4/10: Removing ALSA configuration symlink and backups..."
 rm -f /etc/asound.conf
-rm -f /var/lib/alsa/asound.state
 rm -f /var/lib/alsa/asound.state.backup.*
-echo "ALSA configuration symlinks and backups removed"
+echo "ALSA configuration symlink and backups removed"
 
 echo ""
 echo "Step 5/10: Removing ALSA configuration directory..."
