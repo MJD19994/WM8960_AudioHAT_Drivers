@@ -141,6 +141,9 @@ if ! grep -q "^dtparam=i2c_arm=on" "$CONFIG_FILE"; then
 fi
 
 # Enable I2S-MMAP (required for proper I2S memory-mapped interface)
+# Note: In rare cases, this may conflict with custom audio setups
+# If you experience audio issues after installation, try commenting out dtoverlay=i2s-mmap in config.txt
+
 # Remove old dtparam=i2s=on if present
 if grep -q "^dtparam=i2s=on" "$CONFIG_FILE"; then
     sed -i 's/^dtparam=i2s=on/#dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap/' "$CONFIG_FILE"
@@ -151,6 +154,11 @@ fi
 if ! grep -q "^dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
     echo "dtoverlay=i2s-mmap" >> "$CONFIG_FILE"
     echo "Enabled I2S-MMAP overlay in config.txt"
+    echo ""
+    echo "NOTE: If you experience audio issues (silent failures, unexpected behavior),"
+    echo "      you may need to comment out dtoverlay=i2s-mmap in config.txt."
+    echo "      See README.md 'Required config.txt Settings' section for details."
+    echo ""
 fi
 
 # Add informational comment about dynamic loading benefits
