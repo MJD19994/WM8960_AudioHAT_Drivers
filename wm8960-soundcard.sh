@@ -24,7 +24,13 @@ log_error_exit() {
 
 log_message "Starting WM8960 soundcard initialization..."
 
-# Note: I2C is enabled in config.txt (dtparam=i2c_arm=on), not here to avoid duplicates
+# Verify I2C is enabled (should be done via config.txt by install script)
+log_message "Verifying I2C interface is available..."
+if ! i2cdetect -y 1 >/dev/null 2>&1; then
+  log_error_exit "I2C bus not available. Please add 'dtparam=i2c_arm=on' to /boot/firmware/config.txt [all] section and reboot." 2
+fi
+log_message "I2C interface verified"
+
 # Load kernel modules
 log_message "Loading i2c-dev kernel module..."
 if ! modprobe i2c-dev; then
@@ -53,7 +59,7 @@ if [ "x${is_1a}" != "x" ]; then
   log_message "SUCCESS: WM8960 codec detected at I2C address 0x1a (value: ${is_1a})"
   
   # Check if overlay is already loaded before attempting to load
-  if dtoverlay -l | grep -qE "^[0-9]+_wm8960-soundcard"; then
+  if dtoverlay -l | grep -qE "^[0-9]+_wm8960-soundcard$"; then
     log_message "WM8960 overlay already loaded, skipping overlay load"
   else
     log_message "Loading wm8960-soundcard device tree overlay..."

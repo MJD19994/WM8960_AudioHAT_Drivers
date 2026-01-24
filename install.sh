@@ -28,6 +28,63 @@ echo "Step 3/11: Installing required packages..."
 apt-get install -y dkms git i2c-tools libasound2-plugins
 
 echo ""
+echo "Step 3a/11: Configuring I2C interface in config.txt..."
+# Detect boot partition location
+if [ -f "/boot/firmware/config.txt" ]; then
+    CONFIG_FILE="/boot/firmware/config.txt"
+elif [ -f "/boot/config.txt" ]; then
+    CONFIG_FILE="/boot/config.txt"
+else
+    echo "Error: config.txt not found in /boot/firmware or /boot"
+    exit 1
+fi
+
+echo "Using config file: $CONFIG_FILE"
+
+# Backup config.txt before making any changes
+BACKUP_FILE="${CONFIG_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
+cp "$CONFIG_FILE" "$BACKUP_FILE"
+echo "Backed up config.txt to $BACKUP_FILE"
+
+# Check if dtparam=i2c_arm=on is already present
+if ! grep -q "^dtparam=i2c_arm=on" "$CONFIG_FILE"; then
+    echo "Adding dtparam=i2c_arm=on to config.txt..."
+    
+    # Try to add it to [all] section if it exists
+    if grep -q "^\[all\]" "$CONFIG_FILE"; then
+        # Insert after [all] section header
+        sed -i '/^\[all\]/a dtparam=i2c_arm=on' "$CONFIG_FILE"
+        echo "Added dtparam=i2c_arm=on to [all] section"
+    else
+        # No [all] section, append to end of file
+        echo "" >> "$CONFIG_FILE"
+        echo "[all]" >> "$CONFIG_FILE"
+        echo "dtparam=i2c_arm=on" >> "$CONFIG_FILE"
+        echo "Added [all] section with dtparam=i2c_arm=on"
+    fi
+else
+    echo "dtparam=i2c_arm=on already present in config.txt"
+fi
+
+# Check for dtoverlay=i2s-mmap conflict and warn user
+if grep -q "^dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
+    echo ""
+    echo "=========================================="
+    echo "WARNING: Potential I2S Overlay Conflict"
+    echo "=========================================="
+    echo "Your config.txt contains 'dtoverlay=i2s-mmap' which may conflict with WM8960."
+    echo ""
+    echo "If you experience audio issues after installation (silent failures, unexpected"
+    echo "behavior), you may need to comment out this line in config.txt:"
+    echo "  # dtoverlay=i2s-mmap  # Commented out due to WM8960 conflict"
+    echo ""
+    echo "See README.md 'Required config.txt Settings' section for more details."
+    echo "=========================================="
+    echo ""
+    read -p "Press Enter to continue with installation..."
+fi
+
+echo ""
 echo "Step 4/11: Compiling and installing wm8960-soundcard kernel module via DKMS..."
 # Check if DKMS module is already installed
 if dkms status | grep -q "wm8960-soundcard"; then
@@ -125,20 +182,8 @@ if ! grep -q "^i2c-dev" /etc/modules; then
 fi
 
 echo ""
-echo "Step 7/11: Enabling I2C and I2S in /boot/firmware/config.txt..."
-CONFIG_FILE="/boot/firmware/config.txt"
-if [ ! -f "$CONFIG_FILE" ]; then
-    CONFIG_FILE="/boot/config.txt"
-fi
-
-# Backup config.txt
-cp "$CONFIG_FILE" "${CONFIG_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
-
-# Enable I2C
-if ! grep -q "^dtparam=i2c_arm=on" "$CONFIG_FILE"; then
-    echo "dtparam=i2c_arm=on" >> "$CONFIG_FILE"
-    echo "Enabled I2C in config.txt"
-fi
+echo "Step 7/11: Configuring I2S interface in /boot/firmware/config.txt..."
+# CONFIG_FILE already set in Step 3a
 
 # Enable I2S-MMAP (required for proper I2S memory-mapped interface)
 # Note: In rare cases, this may conflict with custom audio setups
