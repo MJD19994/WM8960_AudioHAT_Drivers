@@ -67,15 +67,19 @@ else
 fi
 
 # Check for dtoverlay=i2s-mmap conflict and warn user
+# This warns if user already has i2s-mmap from a previous install or custom setup
+# The script will add i2s-mmap later if not present, but warns if it already exists
+# in case the user is experiencing conflicts and needs to know about it
 if grep -qE "^[[:space:]]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
     echo ""
     echo "=========================================="
-    echo "WARNING: Potential I2S Overlay Conflict"
+    echo "WARNING: I2S-MMAP Overlay Already Present"
     echo "=========================================="
-    echo "Your config.txt contains 'dtoverlay=i2s-mmap' which may conflict with WM8960."
+    echo "Your config.txt already contains 'dtoverlay=i2s-mmap'."
     echo ""
-    echo "If you experience audio issues after installation (silent failures, unexpected"
-    echo "behavior), you may need to comment out this line in config.txt:"
+    echo "This is usually correct, but if you experience audio issues after"
+    echo "installation (silent failures, unexpected behavior), this overlay"
+    echo "may conflict with WM8960. You can comment it out:"
     echo "  # dtoverlay=i2s-mmap  # Commented out due to WM8960 conflict"
     echo ""
     echo "See README.md 'Required config.txt Settings' section for more details."

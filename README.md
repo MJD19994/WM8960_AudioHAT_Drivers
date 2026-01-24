@@ -293,13 +293,13 @@ dtoverlay=i2s-mmap
 After boot, verify your overlay configuration:
 
 ```bash
-# Check that i2c_arm appears only once
-sudo dtoverlay -l | grep -c "i2c_arm"
-# Expected output: 1
-
-# Check loaded overlays
+# Check loaded overlays (should show i2c_arm and wm8960-soundcard after service starts)
 sudo dtoverlay -l
-# Should show i2c_arm and wm8960-soundcard (after service starts)
+
+# Verify i2c_arm appears only once in the overlay list
+# (Count should be 1, not multiple instances)
+sudo dtoverlay -l | grep "i2c_arm" | wc -l
+# Expected output: 1
 ```
 
 ## Configuration Files
