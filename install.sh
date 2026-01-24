@@ -47,11 +47,11 @@ cp "$CONFIG_FILE" "$BACKUP_FILE"
 echo "Backed up config.txt to $BACKUP_FILE"
 
 # Check if dtparam=i2c_arm=on is already present
-if ! grep -q "^dtparam=i2c_arm=on" "$CONFIG_FILE"; then
+if ! grep -qE "^[[:space:]]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
     echo "Adding dtparam=i2c_arm=on to config.txt..."
     
     # Try to add it to [all] section if it exists
-    if grep -q "^\[all\]" "$CONFIG_FILE"; then
+    if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
         # Insert after [all] section header
         sed -i '/^\[all\]/a dtparam=i2c_arm=on' "$CONFIG_FILE"
         echo "Added dtparam=i2c_arm=on to [all] section"
@@ -67,7 +67,7 @@ else
 fi
 
 # Check for dtoverlay=i2s-mmap conflict and warn user
-if grep -q "^dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
+if grep -qE "^[[:space:]]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
     echo ""
     echo "=========================================="
     echo "WARNING: Potential I2S Overlay Conflict"
@@ -190,13 +190,13 @@ echo "Step 7/11: Configuring I2S interface in /boot/firmware/config.txt..."
 # If you experience audio issues after installation, try commenting out dtoverlay=i2s-mmap in config.txt
 
 # Remove old dtparam=i2s=on if present
-if grep -q "^dtparam=i2s=on" "$CONFIG_FILE"; then
-    sed -i 's/^dtparam=i2s=on/#dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap/' "$CONFIG_FILE"
+if grep -qE "^[[:space:]]*dtparam=i2s=on" "$CONFIG_FILE"; then
+    sed -i 's/^[[:space:]]*dtparam=i2s=on/#dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap/' "$CONFIG_FILE"
     echo "Replaced dtparam=i2s=on with dtoverlay=i2s-mmap"
 fi
 
 # Add dtoverlay=i2s-mmap if not present
-if ! grep -q "^dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
+if ! grep -qE "^[[:space:]]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
     echo "dtoverlay=i2s-mmap" >> "$CONFIG_FILE"
     echo "Enabled I2S-MMAP overlay in config.txt"
     echo ""
