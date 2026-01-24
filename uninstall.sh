@@ -13,18 +13,18 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-echo "Step 1/9: Stopping and disabling systemd service..."
+echo "Step 1/10: Stopping and disabling systemd service..."
 systemctl stop wm8960-soundcard.service 2>/dev/null || echo "Service not running"
 systemctl disable wm8960-soundcard.service 2>/dev/null || echo "Service not enabled"
 
 echo ""
-echo "Step 1a/9: Stopping and disabling ALSA auto-save timer..."
+echo "Step 2/10: Stopping and disabling ALSA auto-save timer..."
 systemctl stop wm8960-alsa-store.timer 2>/dev/null || echo "Timer not running"
 systemctl disable wm8960-alsa-store.timer 2>/dev/null || echo "Timer not enabled"
 systemctl stop wm8960-alsa-store.service 2>/dev/null || echo "Auto-save service not running"
 
 echo ""
-echo "Step 2/9: Removing systemd service files..."
+echo "Step 3/10: Removing systemd service files..."
 rm -f /etc/systemd/system/wm8960-soundcard.service
 rm -f /usr/bin/wm8960-soundcard
 rm -f /etc/systemd/system/wm8960-alsa-store.service
@@ -34,23 +34,23 @@ systemctl daemon-reload
 echo "Service files removed"
 
 echo ""
-echo "Step 3/9: Removing ALSA configuration symlinks..."
+echo "Step 4/10: Removing ALSA configuration symlinks..."
 rm -f /etc/asound.conf
 rm -f /var/lib/alsa/asound.state
 echo "Symlinks removed"
 
 echo ""
-echo "Step 4/9: Removing ALSA configuration directory..."
+echo "Step 5/10: Removing ALSA configuration directory..."
 rm -rf /etc/wm8960-soundcard
 echo "Configuration directory removed"
 
 echo ""
-echo "Step 5/9: Removing service log file..."
+echo "Step 6/10: Removing service log file..."
 rm -f /var/log/wm8960-soundcard.log
 echo "Log file removed"
 
 echo ""
-echo "Step 6/9: Removing DKMS kernel module..."
+echo "Step 7/10: Removing DKMS kernel module..."
 if dkms status | grep -q "wm8960-soundcard"; then
     dkms remove wm8960-soundcard/1.0 --all
     # Verify removal was successful
@@ -64,18 +64,18 @@ else
 fi
 
 echo ""
-echo "Step 7/9: Removing DKMS source files..."
+echo "Step 8/10: Removing DKMS source files..."
 rm -rf /usr/src/wm8960-soundcard-1.0
 echo "DKMS source files removed"
 
 echo ""
-echo "Step 8/9: Removing device tree overlay..."
+echo "Step 9/10: Removing device tree overlay..."
 rm -f /boot/overlays/wm8960-soundcard.dtbo
 rm -f /boot/firmware/overlays/wm8960-soundcard.dtbo
 echo "Device tree overlay removed (if present)"
 
 echo ""
-echo "Step 9/9: Cleaning up config.txt..."
+echo "Step 10/10: Cleaning up config.txt..."
 CONFIG_FILE="/boot/firmware/config.txt"
 if [ ! -f "$CONFIG_FILE" ]; then
     CONFIG_FILE="/boot/config.txt"
