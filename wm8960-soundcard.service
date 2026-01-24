@@ -8,6 +8,11 @@ Type=oneshot
 User=root
 ExecStart=/usr/bin/wm8960-soundcard
 RemainAfterExit=yes
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+TimeoutStartSec=120
 
 [Install]
 WantedBy=multi-user.target
