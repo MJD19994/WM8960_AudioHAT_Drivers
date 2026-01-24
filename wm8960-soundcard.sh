@@ -24,12 +24,12 @@ log_error_exit() {
 
 log_message "Starting WM8960 soundcard initialization..."
 
-# Enable I2C
-log_message "Enabling I2C interface..."
-if ! dtparam i2c_arm=on; then
-  log_message "WARNING: dtparam i2c_arm=on failed, but continuing (may already be enabled)"
+# Verify I2C is enabled (should be done via config.txt by install script)
+log_message "Verifying I2C interface is available..."
+if ! i2cdetect -y 1 >/dev/null 2>&1; then
+  log_error_exit "I2C bus not available. Please add 'dtparam=i2c_arm=on' to config.txt [all] section (usually /boot/firmware/config.txt or /boot/config.txt) and reboot." 2
 fi
-log_message "I2C interface enabled"
+log_message "I2C interface verified"
 
 # Load kernel modules
 log_message "Loading i2c-dev kernel module..."
@@ -58,13 +58,19 @@ done
 if [ "x${is_1a}" != "x" ]; then
   log_message "SUCCESS: WM8960 codec detected at I2C address 0x1a (value: ${is_1a})"
   
-  log_message "Loading wm8960-soundcard device tree overlay..."
-  # Load the WM8960 overlay dynamically (ONLY HERE - not in config.txt)
-  # No need to disable /sound node - we use unique driver name "asoc-wm8960-soundcard"
-  if ! dtoverlay wm8960-soundcard; then
-    log_error_exit "Failed to load wm8960-soundcard overlay" 3
+  # Check if overlay is already loaded before attempting to load
+  # dtoverlay -l lists overlays in format: "N_overlayname" where N is the overlay number
+  if dtoverlay -l | grep -qE "[0-9]+_wm8960-soundcard"; then
+    log_message "WM8960 overlay already loaded, skipping overlay load"
+  else
+    log_message "Loading wm8960-soundcard device tree overlay..."
+    # Load the WM8960 overlay dynamically (ONLY HERE - not in config.txt)
+    # No need to disable /sound node - we use unique driver name "asoc-wm8960-soundcard"
+    if ! dtoverlay wm8960-soundcard; then
+      log_error_exit "Failed to load wm8960-soundcard overlay" 3
+    fi
+    log_message "Device tree overlay loaded successfully"
   fi
-  log_message "Device tree overlay loaded successfully"
   sleep 1
   
   # Safer ALSA config management - backup before removing

@@ -226,6 +226,82 @@ sudo dkms status
 
 If all seven checks pass, your WM8960 Audio HAT is properly installed and ready to use!
 
+## Required config.txt Settings
+
+The WM8960 driver requires specific settings in `/boot/firmware/config.txt` (or `/boot/config.txt` on older systems) for proper operation. The install script adds these automatically, but if you experience issues, verify these settings are present:
+
+### Minimum Required Settings
+
+Your config.txt must have the following in the `[all]` section (or at least not in a platform-specific section):
+
+```
+# Required: Enable I2C interface for codec communication
+dtparam=i2c_arm=on
+```
+
+**Important Notes:**
+- The `dtparam=i2c_arm=on` setting must ONLY appear ONCE in config.txt
+- It should be in the `[all]` section to work on all Raspberry Pi models
+- The WM8960 service script no longer calls `dtparam i2c_arm=on` to avoid duplicate entries
+- Multiple dtparam calls accumulate in the device tree overlay list, wasting kernel memory and potentially causing driver initialization failures
+
+### Known Conflicts
+
+**⚠️ dtoverlay=i2s-mmap Conflict:**
+
+The install script adds `dtoverlay=i2s-mmap` to config.txt, which is required for proper I2S memory-mapped interface. However, if you are experiencing issues or have a custom audio setup, you may need to remove this overlay.
+
+**Known conflict symptoms:**
+- Silent failures during audio playback
+- Unexpected audio routing behavior
+- Service initialization failures related to I2S
+
+**If you experience these issues:**
+1. Edit your config.txt:
+   ```bash
+   sudo nano /boot/firmware/config.txt
+   ```
+
+2. Comment out or remove the i2s-mmap line:
+   ```
+   # dtoverlay=i2s-mmap  # Commented out due to conflict
+   ```
+
+3. Reboot:
+   ```bash
+   sudo reboot
+   ```
+
+### Example config.txt [all] Section
+
+Here's an example of a properly configured `[all]` section in config.txt:
+
+```
+[all]
+# Enable I2C for WM8960 codec
+dtparam=i2c_arm=on
+
+# Enable I2S interface (added by install script)
+dtoverlay=i2s-mmap
+
+# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection
+# Do NOT add: dtoverlay=wm8960-soundcard
+```
+
+### Verifying Your Configuration
+
+After boot, verify your overlay configuration:
+
+```bash
+# Check loaded overlays (should show i2c_arm and wm8960-soundcard after service starts)
+sudo dtoverlay -l
+
+# Verify i2c_arm appears only once in the overlay list
+# (Count should be 1, not multiple instances)
+sudo dtoverlay -l | grep "i2c_arm" | wc -l
+# Expected output: 1
+```
+
 ## Configuration Files
 
 ### /boot/firmware/config.txt
