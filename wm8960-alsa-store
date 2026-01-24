@@ -39,17 +39,18 @@ log_message "Found $backup_count existing backup file(s)"
 
 if [ "$backup_count" -gt 5 ]; then
   # Delete oldest backups, keeping last 5
-  # Use ls -t (sort by modification time, newest first) for POSIX compliance
-  find "$BACKUP_DIR" -name "$BACKUP_PATTERN" -type f 2>/dev/null | \
-    xargs ls -t 2>/dev/null | \
-    tail -n +6 | \
-    while IFS= read -r file; do
-      if rm -f "$file" 2>/dev/null; then
-        log_message "Deleted old backup: $(basename "$file")"
-      else
-        log_message "WARNING: Failed to delete backup: $(basename "$file")"
-      fi
-    done
+  # Use stat and sort for POSIX compliance while handling filenames with spaces
+  find "$BACKUP_DIR" -name "$BACKUP_PATTERN" -type f 2>/dev/null | while IFS= read -r file; do
+    # Get modification time as seconds since epoch
+    mtime=$(stat -c '%Y' "$file" 2>/dev/null || stat -f '%m' "$file" 2>/dev/null)
+    echo "$mtime|$file"
+  done | sort -t'|' -k1,1n | cut -d'|' -f2- | head -n $(($backup_count - 5)) | while IFS= read -r file; do
+    if rm -f "$file" 2>/dev/null; then
+      log_message "Deleted old backup: $(basename "$file")"
+    else
+      log_message "WARNING: Failed to delete backup: $(basename "$file")"
+    fi
+  done
   log_message "Cleanup complete - kept last 5 backups"
 else
   log_message "No cleanup needed (backup count: $backup_count, limit: 5)"

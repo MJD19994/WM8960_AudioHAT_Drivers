@@ -139,13 +139,14 @@ if [ "x${is_1a}" != "x" ]; then
   
   if [ "$backup_count" -gt 10 ]; then
     # Delete oldest backups, keeping last 10
-    # Use ls -t (sort by modification time, newest first) for POSIX compliance
-    find "$BACKUP_DIR" -name "$BACKUP_PATTERN" -type f 2>/dev/null | \
-      xargs ls -t 2>/dev/null | \
-      tail -n +11 | \
-      while IFS= read -r file; do
-        rm -f "$file" 2>/dev/null && log_message "Deleted old backup: $(basename "$file")"
-      done
+    # Use stat and sort for POSIX compliance while handling filenames with spaces
+    find "$BACKUP_DIR" -name "$BACKUP_PATTERN" -type f 2>/dev/null | while IFS= read -r file; do
+      # Get modification time as seconds since epoch
+      mtime=$(stat -c '%Y' "$file" 2>/dev/null || stat -f '%m' "$file" 2>/dev/null)
+      echo "$mtime|$file"
+    done | sort -t'|' -k1,1n | cut -d'|' -f2- | head -n $(($backup_count - 10)) | while IFS= read -r file; do
+      rm -f "$file" 2>/dev/null && log_message "Deleted old backup: $(basename "$file")"
+    done
     log_message "Boot-time cleanup complete - kept last 10 backups"
   else
     log_message "No boot-time cleanup needed (backup count: $backup_count, limit: 10)"
