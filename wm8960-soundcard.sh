@@ -26,7 +26,9 @@ log_message "Starting WM8960 soundcard initialization..."
 
 # Enable I2C
 log_message "Enabling I2C interface..."
-dtparam i2c_arm=on
+if ! dtparam i2c_arm=on; then
+  log_message "WARNING: dtparam i2c_arm=on failed, but continuing (may already be enabled)"
+fi
 log_message "I2C interface enabled"
 
 # Load kernel modules
@@ -69,11 +71,15 @@ if [ "x${is_1a}" != "x" ]; then
   log_message "Managing ALSA configuration files..."
   if [ -f /etc/asound.conf ] && [ ! -L /etc/asound.conf ]; then
     log_message "Backing up existing /etc/asound.conf"
-    cp /etc/asound.conf /etc/asound.conf.backup.$(date +%Y%m%d_%H%M%S)
+    if ! cp /etc/asound.conf /etc/asound.conf.backup.$(date +%Y%m%d_%H%M%S); then
+      log_message "WARNING: Failed to create backup of /etc/asound.conf (continuing anyway)"
+    fi
   fi
   if [ -f /var/lib/alsa/asound.state ] && [ ! -L /var/lib/alsa/asound.state ]; then
     log_message "Backing up existing /var/lib/alsa/asound.state"
-    cp /var/lib/alsa/asound.state /var/lib/alsa/asound.state.backup.$(date +%Y%m%d_%H%M%S)
+    if ! cp /var/lib/alsa/asound.state /var/lib/alsa/asound.state.backup.$(date +%Y%m%d_%H%M%S); then
+      log_message "WARNING: Failed to create backup of /var/lib/alsa/asound.state (continuing anyway)"
+    fi
   fi
   
   # Remove old ALSA config files (use -f to avoid errors if files don't exist)
