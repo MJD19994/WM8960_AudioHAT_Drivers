@@ -39,11 +39,10 @@ log_message "Found $backup_count existing backup file(s)"
 
 if [ "$backup_count" -gt 5 ]; then
   # Delete oldest backups, keeping last 5
-  # Sort by modification time (oldest first), skip the 5 newest, delete the rest
-  find "$BACKUP_DIR" -name "$BACKUP_PATTERN" -type f -printf '%T+ %p\n' 2>/dev/null | \
-    sort | \
-    head -n -5 | \
-    cut -d' ' -f2- | \
+  # Use ls -t (sort by modification time, newest first) for POSIX compliance
+  find "$BACKUP_DIR" -name "$BACKUP_PATTERN" -type f 2>/dev/null | \
+    xargs ls -t 2>/dev/null | \
+    tail -n +6 | \
     while IFS= read -r file; do
       if rm -f "$file" 2>/dev/null; then
         log_message "Deleted old backup: $(basename "$file")"

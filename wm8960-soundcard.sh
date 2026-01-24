@@ -139,11 +139,10 @@ if [ "x${is_1a}" != "x" ]; then
   
   if [ "$backup_count" -gt 10 ]; then
     # Delete oldest backups, keeping last 10
-    # Sort by modification time (oldest first), skip the 10 newest, delete the rest
-    find "$BACKUP_DIR" -name "$BACKUP_PATTERN" -type f -printf '%T+ %p\n' 2>/dev/null | \
-      sort | \
-      head -n -10 | \
-      cut -d' ' -f2- | \
+    # Use ls -t (sort by modification time, newest first) for POSIX compliance
+    find "$BACKUP_DIR" -name "$BACKUP_PATTERN" -type f 2>/dev/null | \
+      xargs ls -t 2>/dev/null | \
+      tail -n +11 | \
       while IFS= read -r file; do
         rm -f "$file" 2>/dev/null && log_message "Deleted old backup: $(basename "$file")"
       done
