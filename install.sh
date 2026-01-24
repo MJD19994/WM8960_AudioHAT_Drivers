@@ -201,7 +201,20 @@ fi
 
 # Add dtoverlay=i2s-mmap if not present
 if ! grep -qE "^[[:space:]]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
-    echo "dtoverlay=i2s-mmap" >> "$CONFIG_FILE"
+    # Try to add it to [all] section if it exists
+    if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
+        # Insert after dtparam=i2c_arm=on if it exists, otherwise after [all] section header
+        if grep -qE "^[[:space:]]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
+            sed -i '/^[[:space:]]*dtparam=i2c_arm=on/a dtoverlay=i2s-mmap' "$CONFIG_FILE"
+        else
+            sed -i '/^[[:space:]]*\[all\]/a dtoverlay=i2s-mmap' "$CONFIG_FILE"
+        fi
+        echo "Added dtoverlay=i2s-mmap to [all] section"
+    else
+        # No [all] section exists, should have been created earlier when adding dtparam=i2c_arm=on
+        echo "dtoverlay=i2s-mmap" >> "$CONFIG_FILE"
+        echo "Added dtoverlay=i2s-mmap to end of config.txt"
+    fi
     echo "Enabled I2S-MMAP overlay in config.txt"
     echo ""
     echo "NOTE: If you experience audio issues (silent failures, unexpected behavior),"
