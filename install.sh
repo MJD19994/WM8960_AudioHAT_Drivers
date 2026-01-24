@@ -16,19 +16,19 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-echo "Step 1/12: Updating package lists..."
+echo "Step 1/13: Updating package lists..."
 timeout 120 apt-get update || echo "Warning: apt-get update timed out or failed. Package installations may fail if repositories are not accessible."
 
 echo ""
-echo "Step 2/12: Installing kernel headers..."
+echo "Step 2/13: Installing kernel headers..."
 apt-get install -y linux-headers-$(uname -r)
 
 echo ""
-echo "Step 3/12: Installing required packages..."
+echo "Step 3/13: Installing required packages..."
 apt-get install -y dkms git i2c-tools libasound2-plugins
 
 echo ""
-echo "Step 3a/12: Configuring I2C interface in config.txt..."
+echo "Step 3a/13: Configuring I2C interface in config.txt..."
 # Detect boot partition location
 if [ -f "/boot/firmware/config.txt" ]; then
     CONFIG_FILE="/boot/firmware/config.txt"
@@ -103,7 +103,7 @@ if grep -qE "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
 fi
 
 echo ""
-echo "Step 4/12: Compiling and installing wm8960-soundcard kernel module via DKMS..."
+echo "Step 4/13: Compiling and installing wm8960-soundcard kernel module via DKMS..."
 # Check if DKMS module is already installed
 if dkms status | grep -q "wm8960-soundcard"; then
     echo "DKMS module already installed, removing old version..."
@@ -153,7 +153,7 @@ echo "Installing module with DKMS..."
 dkms install -m wm8960-soundcard -v 1.0
 
 echo ""
-echo "Step 5/12: Copying device tree overlay..."
+echo "Step 5/13: Copying device tree overlay..."
 # Verify the dtbo file exists in the repository
 if [ ! -f "$SCRIPT_DIR/kernel_module/wm8960-soundcard.dtbo" ]; then
     echo "Error: wm8960-soundcard.dtbo not found in $SCRIPT_DIR/kernel_module/"
@@ -192,7 +192,7 @@ else
 fi
 
 echo ""
-echo "Step 6/12: Configuring kernel modules in /etc/modules..."
+echo "Step 6/13: Configuring kernel modules in /etc/modules..."
 # Add i2c-dev to /etc/modules if not present
 if ! grep -q "^i2c-dev" /etc/modules; then
     echo "i2c-dev" >> /etc/modules
@@ -200,7 +200,7 @@ if ! grep -q "^i2c-dev" /etc/modules; then
 fi
 
 echo ""
-echo "Step 7/12: Configuring I2S interface in /boot/firmware/config.txt..."
+echo "Step 7/13: Configuring I2S interface in /boot/firmware/config.txt..."
 # CONFIG_FILE already set in Step 3a
 
 # Enable I2S-MMAP (required for proper I2S memory-mapped interface)
@@ -257,7 +257,7 @@ fi
 echo "Note: wm8960-soundcard overlay will be loaded dynamically by the systemd service"
 
 echo ""
-echo "Step 8/12: Installing ALSA configuration files..."
+echo "Step 8/13: Installing ALSA configuration files..."
 # Create directory for WM8960 configuration
 mkdir -p /etc/wm8960-soundcard
 
@@ -277,7 +277,7 @@ else
 fi
 
 echo ""
-echo "Step 9/12: Installing systemd service script..."
+echo "Step 9/13: Installing systemd service script..."
 # Copy service script to /usr/bin
 if [ -f "$SCRIPT_DIR/wm8960-soundcard.sh" ]; then
     cp "$SCRIPT_DIR/wm8960-soundcard.sh" /usr/bin/wm8960-soundcard
@@ -289,7 +289,7 @@ else
 fi
 
 echo ""
-echo "Step 10/12: Installing systemd service..."
+echo "Step 10/13: Installing systemd service file..."
 # Copy systemd service file
 if [ -f "$SCRIPT_DIR/wm8960-soundcard.service" ]; then
     cp "$SCRIPT_DIR/wm8960-soundcard.service" /etc/systemd/system/
@@ -300,13 +300,40 @@ else
 fi
 
 echo ""
-echo "Step 11/12: Enabling and starting systemd service..."
+echo "Step 11/13: Installing ALSA auto-save components (disabled by default)..."
+# Copy auto-save script to /usr/bin
+if [ -f "$SCRIPT_DIR/wm8960-alsa-store" ]; then
+    cp "$SCRIPT_DIR/wm8960-alsa-store" /usr/bin/wm8960-alsa-store
+    chmod +x /usr/bin/wm8960-alsa-store
+    echo "Installed wm8960-alsa-store script"
+else
+    echo "Warning: wm8960-alsa-store script not found in script directory"
+fi
+
+# Copy auto-save service file
+if [ -f "$SCRIPT_DIR/wm8960-alsa-store.service" ]; then
+    cp "$SCRIPT_DIR/wm8960-alsa-store.service" /etc/systemd/system/
+    echo "Installed wm8960-alsa-store.service"
+else
+    echo "Warning: wm8960-alsa-store.service not found in script directory"
+fi
+
+# Copy auto-save timer file
+if [ -f "$SCRIPT_DIR/wm8960-alsa-store.timer" ]; then
+    cp "$SCRIPT_DIR/wm8960-alsa-store.timer" /etc/systemd/system/
+    echo "Installed wm8960-alsa-store.timer"
+else
+    echo "Warning: wm8960-alsa-store.timer not found in script directory"
+fi
+
+echo ""
+echo "Step 12/13: Enabling and starting systemd service..."
 systemctl daemon-reload
 systemctl enable wm8960-soundcard.service
 echo "Service enabled to start on boot"
 
 echo ""
-echo "Step 12/12: Validating installation..."
+echo "Step 13/13: Validating installation..."
 # Verify critical files and configurations
 validation_errors=0
 
@@ -364,6 +391,27 @@ echo "Installation Complete!"
 echo "==============================================="
 echo ""
 echo "IMPORTANT: You must reboot your Raspberry Pi for changes to take effect."
+echo ""
+echo "==============================================="
+echo "Audio Settings Management"
+echo "==============================================="
+echo ""
+echo "By default, audio mixer settings are NOT automatically saved."
+echo "After configuring your audio settings (volume, etc.), save them with:"
+echo "   sudo alsactl store"
+echo ""
+echo "OPTIONAL: Enable automatic saving every 6 hours:"
+echo "   sudo systemctl enable wm8960-alsa-store.timer"
+echo "   sudo systemctl start wm8960-alsa-store.timer"
+echo ""
+echo "To check auto-save status:"
+echo "   sudo systemctl status wm8960-alsa-store.timer"
+echo ""
+echo "See README.md 'Saving Audio Settings' section for more details."
+echo ""
+echo "==============================================="
+echo "Post-Installation Verification"
+echo "==============================================="
 echo ""
 echo "After rebooting, verify the installation with these commands:"
 echo ""

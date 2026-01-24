@@ -1,0 +1,14 @@
+[Unit]
+Description=WM8960 ALSA State Auto-Save Timer
+Requires=wm8960-alsa-store.service
+
+[Timer]
+# Wait 30 minutes after boot to allow user configuration before first auto-save
+OnBootSec=30min
+# Save every 6 hours to balance persistence with system performance
+OnUnitActiveSec=6h
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target
