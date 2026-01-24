@@ -131,6 +131,7 @@ lsmod | grep snd_soc
 **Expected output:** 
 - Multiple snd_soc modules should be listed
 - Should include entries like:
+  - `snd_soc_wm8960_soundcard` - The WM8960 soundcard driver
   - `snd_soc_wm8960` - The WM8960 codec driver
   - `snd_soc_core` - ALSA SoC core
   - `snd_soc_bcm2835_i2s` - Raspberry Pi I2S interface
@@ -381,7 +382,7 @@ While the driver name conflict is resolved, the WM8960 driver still uses **dynam
 
 ### How Our Solution Works:
 
-1. **Service-Based Initialization:** The `wm8960-soundcard.service` runs after network-online.target, ensuring proper boot sequence.
+1. **Service-Based Initialization:** The `wm8960-soundcard.service` runs after multi-user.target, ensuring proper boot sequence. The service doesn't require network connectivity as I2C is a local hardware interface.
 
 2. **I2C Detection:** The service script (`wm8960-soundcard.sh`) actively detects the codec on I2C bus 1 at address 0x1a with multiple retry attempts (up to 5 attempts with delays).
 
@@ -501,7 +502,7 @@ sudo systemctl restart wm8960-soundcard.service
 **Solutions:**
 1. Verify HAT is properly seated on GPIO header
 2. Check for hardware damage or loose connections
-3. Enable I2C manually: Add `dtparam=i2c_arm=on` to `/boot/firmware/config.txt`
+3. Check I2C is enabled: The install script automatically adds `dtparam=i2c_arm=on` to `/boot/firmware/config.txt` in the [all] section
 4. Reboot and test again
 5. Try different I2C address if your HAT uses a different one
 

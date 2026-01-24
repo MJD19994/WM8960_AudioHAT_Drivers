@@ -43,7 +43,7 @@ sleep 5
 log_message "Detecting WM8960 codec on I2C bus 1 at address 0x1a..."
 for loop in 1 2 3 4 5; do
   log_message "Detection attempt $loop/5..."
-  is_1a=$(i2cdetect -y 1 0x1a 0x1a 2>/dev/null | egrep '(1a|UU)' | awk '{print $2}')
+  is_1a=$(i2cdetect -y 1 0x1a 0x1a 2>/dev/null | grep -oE '(1a|UU)')
   if [ "x${is_1a}" != "x" ]; then
     log_message "WM8960 codec detected on attempt $loop"
     break
@@ -110,6 +110,8 @@ if [ "x${is_1a}" != "x" ]; then
   fi
   log_message "Created /etc/asound.conf symlink"
   
+  # Ensure /var/lib/alsa directory exists before creating symlink
+  mkdir -p /var/lib/alsa
   if ! ln -sf /etc/wm8960-soundcard/wm8960_asound.state /var/lib/alsa/asound.state; then
     log_error_exit "Failed to create asound.state symlink" 5
   fi
@@ -117,10 +119,14 @@ if [ "x${is_1a}" != "x" ]; then
   
   # Restore ALSA state (suppress warnings about missing controls)
   log_message "Restoring ALSA mixer state..."
-  if alsactl restore 2>/dev/null; then
-    log_message "ALSA mixer state restored successfully"
+  if [ -f /var/lib/alsa/asound.state ]; then
+    if alsactl restore 2>/dev/null; then
+      log_message "ALSA mixer state restored successfully"
+    else
+      log_message "NOTE: Some ALSA controls may not be available yet (this is normal)"
+    fi
   else
-    log_message "NOTE: Some ALSA controls may not be available yet (this is normal)"
+    log_message "No saved ALSA state (first boot?)"
   fi
   
   # Health check: Verify audio system is working

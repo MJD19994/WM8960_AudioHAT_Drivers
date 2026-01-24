@@ -16,19 +16,19 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-echo "Step 1/11: Updating package lists..."
-apt-get update
+echo "Step 1/12: Updating package lists..."
+timeout 120 apt-get update || echo "Warning: apt-get update timed out or failed. Package installations may fail if repositories are not accessible."
 
 echo ""
-echo "Step 2/11: Installing kernel headers..."
+echo "Step 2/12: Installing kernel headers..."
 apt-get install -y linux-headers-$(uname -r)
 
 echo ""
-echo "Step 3/11: Installing required packages..."
+echo "Step 3/12: Installing required packages..."
 apt-get install -y dkms git i2c-tools libasound2-plugins
 
 echo ""
-echo "Step 3a/11: Configuring I2C interface in config.txt..."
+echo "Step 3a/12: Configuring I2C interface in config.txt..."
 # Detect boot partition location
 if [ -f "/boot/firmware/config.txt" ]; then
     CONFIG_FILE="/boot/firmware/config.txt"
@@ -45,15 +45,19 @@ echo "Using config file: $CONFIG_FILE"
 BACKUP_FILE="${CONFIG_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
 cp "$CONFIG_FILE" "$BACKUP_FILE"
 echo "Backed up config.txt to $BACKUP_FILE"
+echo "Note: Backup files accumulate with each run. Old backups can be safely removed to save space."
 
-# Check if dtparam=i2c_arm=on is already present
-if ! grep -qE "^[[:space:]]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
+# Check if dtparam=i2c_arm=on is already present (exclude commented lines)
+if ! grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
     echo "Adding dtparam=i2c_arm=on to config.txt..."
     
     # Try to add it to [all] section if it exists
     if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
         # Insert after [all] section header (handles potential whitespace)
-        sed -i '/^[[:space:]]*\[all\]/a dtparam=i2c_arm=on' "$CONFIG_FILE"
+        if ! sed -i '/^[[:space:]]*\[all\]/a dtparam=i2c_arm=on' "$CONFIG_FILE"; then
+            echo "ERROR: Failed to add dtparam=i2c_arm=on to config.txt"
+            exit 1
+        fi
         echo "Added dtparam=i2c_arm=on to [all] section"
     else
         # No [all] section, append to end of file
@@ -61,6 +65,12 @@ if ! grep -qE "^[[:space:]]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
         echo "[all]" >> "$CONFIG_FILE"
         echo "dtparam=i2c_arm=on" >> "$CONFIG_FILE"
         echo "Added [all] section with dtparam=i2c_arm=on"
+    fi
+    
+    # Verify dtparam was actually added to config.txt
+    if ! grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
+        echo "ERROR: Failed to verify dtparam=i2c_arm=on in config.txt"
+        exit 1
     fi
 else
     echo "dtparam=i2c_arm=on already present in config.txt"
@@ -70,7 +80,7 @@ fi
 # This warns if user already has i2s-mmap from a previous install or custom setup
 # The script will add i2s-mmap later if not present, but warns if it already exists
 # in case the user is experiencing conflicts and needs to know about it
-if grep -qE "^[[:space:]]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
+if grep -qE "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
     echo ""
     echo "=========================================="
     echo "WARNING: I2S-MMAP Overlay Already Present"
@@ -85,11 +95,15 @@ if grep -qE "^[[:space:]]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
     echo "See README.md 'Required config.txt Settings' section for more details."
     echo "=========================================="
     echo ""
-    read -p "Press Enter to continue with installation..."
+    if [ -t 0 ]; then
+        read -p "Press Enter to continue with installation..."
+    else
+        echo "Non-interactive mode, continuing..."
+    fi
 fi
 
 echo ""
-echo "Step 4/11: Compiling and installing wm8960-soundcard kernel module via DKMS..."
+echo "Step 4/12: Compiling and installing wm8960-soundcard kernel module via DKMS..."
 # Check if DKMS module is already installed
 if dkms status | grep -q "wm8960-soundcard"; then
     echo "DKMS module already installed, removing old version..."
@@ -139,7 +153,7 @@ echo "Installing module with DKMS..."
 dkms install -m wm8960-soundcard -v 1.0
 
 echo ""
-echo "Step 5/11: Copying device tree overlay..."
+echo "Step 5/12: Copying device tree overlay..."
 # Verify the dtbo file exists in the repository
 if [ ! -f "$SCRIPT_DIR/kernel_module/wm8960-soundcard.dtbo" ]; then
     echo "Error: wm8960-soundcard.dtbo not found in $SCRIPT_DIR/kernel_module/"
@@ -178,7 +192,7 @@ else
 fi
 
 echo ""
-echo "Step 6/11: Configuring kernel modules in /etc/modules..."
+echo "Step 6/12: Configuring kernel modules in /etc/modules..."
 # Add i2c-dev to /etc/modules if not present
 if ! grep -q "^i2c-dev" /etc/modules; then
     echo "i2c-dev" >> /etc/modules
@@ -186,7 +200,7 @@ if ! grep -q "^i2c-dev" /etc/modules; then
 fi
 
 echo ""
-echo "Step 7/11: Configuring I2S interface in /boot/firmware/config.txt..."
+echo "Step 7/12: Configuring I2S interface in /boot/firmware/config.txt..."
 # CONFIG_FILE already set in Step 3a
 
 # Enable I2S-MMAP (required for proper I2S memory-mapped interface)
@@ -195,13 +209,35 @@ echo "Step 7/11: Configuring I2S interface in /boot/firmware/config.txt..."
 
 # Remove old dtparam=i2s=on if present
 if grep -qE "^[[:space:]]*dtparam=i2s=on" "$CONFIG_FILE"; then
-    sed -i 's/^\([[:space:]]*\)dtparam=i2s=on/#\1dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap/' "$CONFIG_FILE"
+    if ! sed -i 's/^[[:space:]]*dtparam=i2s=on/# dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap/' "$CONFIG_FILE"; then
+        echo "ERROR: Failed to comment out dtparam=i2s=on in config.txt"
+        exit 1
+    fi
     echo "Replaced dtparam=i2s=on with dtoverlay=i2s-mmap"
 fi
 
 # Add dtoverlay=i2s-mmap if not present
-if ! grep -qE "^[[:space:]]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
-    echo "dtoverlay=i2s-mmap" >> "$CONFIG_FILE"
+if ! grep -qE "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
+    # Try to add it to [all] section if it exists
+    if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
+        # Insert after dtparam=i2c_arm=on if it exists, otherwise after [all] section header
+        if grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
+            if ! sed -i '/^[^#]*dtparam=i2c_arm=on/a dtoverlay=i2s-mmap' "$CONFIG_FILE"; then
+                echo "ERROR: Failed to add dtoverlay=i2s-mmap to config.txt"
+                exit 1
+            fi
+        else
+            if ! sed -i '/^[[:space:]]*\[all\]/a dtoverlay=i2s-mmap' "$CONFIG_FILE"; then
+                echo "ERROR: Failed to add dtoverlay=i2s-mmap to config.txt"
+                exit 1
+            fi
+        fi
+        echo "Added dtoverlay=i2s-mmap to [all] section"
+    else
+        # No [all] section exists, should have been created earlier when adding dtparam=i2c_arm=on
+        echo "dtoverlay=i2s-mmap" >> "$CONFIG_FILE"
+        echo "Added dtoverlay=i2s-mmap to end of config.txt"
+    fi
     echo "Enabled I2S-MMAP overlay in config.txt"
     echo ""
     echo "NOTE: If you experience audio issues (silent failures, unexpected behavior),"
@@ -212,7 +248,7 @@ fi
 
 # Add informational comment about dynamic loading benefits
 # Dynamic loading allows for I2C detection and proper initialization timing
-if ! grep -q "Dynamic loading allows" "$CONFIG_FILE"; then
+if ! grep -qF "# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection" "$CONFIG_FILE"; then
     echo "" >> "$CONFIG_FILE"
     echo "# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection" >> "$CONFIG_FILE"
 fi
@@ -221,7 +257,7 @@ fi
 echo "Note: wm8960-soundcard overlay will be loaded dynamically by the systemd service"
 
 echo ""
-echo "Step 8/11: Installing ALSA configuration files..."
+echo "Step 8/12: Installing ALSA configuration files..."
 # Create directory for WM8960 configuration
 mkdir -p /etc/wm8960-soundcard
 
@@ -241,7 +277,7 @@ else
 fi
 
 echo ""
-echo "Step 9/11: Installing systemd service script..."
+echo "Step 9/12: Installing systemd service script..."
 # Copy service script to /usr/bin
 if [ -f "$SCRIPT_DIR/wm8960-soundcard.sh" ]; then
     cp "$SCRIPT_DIR/wm8960-soundcard.sh" /usr/bin/wm8960-soundcard
@@ -253,7 +289,7 @@ else
 fi
 
 echo ""
-echo "Step 10/11: Installing systemd service..."
+echo "Step 10/12: Installing systemd service..."
 # Copy systemd service file
 if [ -f "$SCRIPT_DIR/wm8960-soundcard.service" ]; then
     cp "$SCRIPT_DIR/wm8960-soundcard.service" /etc/systemd/system/
@@ -264,10 +300,63 @@ else
 fi
 
 echo ""
-echo "Step 11/11: Enabling and starting systemd service..."
+echo "Step 11/12: Enabling and starting systemd service..."
 systemctl daemon-reload
 systemctl enable wm8960-soundcard.service
 echo "Service enabled to start on boot"
+
+echo ""
+echo "Step 12/12: Validating installation..."
+# Verify critical files and configurations
+validation_errors=0
+
+# Check if DKMS module was installed
+if dkms status | grep -q "wm8960-soundcard/1.0"; then
+    echo "✓ DKMS module installed"
+else
+    echo "✗ DKMS module not found"
+    validation_errors=$((validation_errors + 1))
+fi
+
+# Check if device tree overlay was copied
+if [ -f "$BOOT_OVERLAYS/wm8960-soundcard.dtbo" ]; then
+    echo "✓ Device tree overlay installed"
+else
+    echo "✗ Device tree overlay not found"
+    validation_errors=$((validation_errors + 1))
+fi
+
+# Check if systemd service was installed
+if [ -f "/etc/systemd/system/wm8960-soundcard.service" ]; then
+    echo "✓ Systemd service installed"
+else
+    echo "✗ Systemd service not found"
+    validation_errors=$((validation_errors + 1))
+fi
+
+# Check if config files were copied
+if [ -f "/etc/wm8960-soundcard/asound.conf" ] && [ -f "/etc/wm8960-soundcard/wm8960_asound.state" ]; then
+    echo "✓ ALSA configuration files installed"
+else
+    echo "✗ ALSA configuration files not found"
+    validation_errors=$((validation_errors + 1))
+fi
+
+# Check if config.txt was modified correctly
+if grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
+    echo "✓ I2C enabled in config.txt"
+else
+    echo "✗ I2C not enabled in config.txt"
+    validation_errors=$((validation_errors + 1))
+fi
+
+if [ $validation_errors -eq 0 ]; then
+    echo ""
+    echo "All validation checks passed!"
+else
+    echo ""
+    echo "Warning: $validation_errors validation check(s) failed. Review errors above."
+fi
 
 echo ""
 echo "==============================================="
@@ -303,10 +392,14 @@ echo ""
 echo "For detailed troubleshooting, see the README.md file."
 echo ""
 echo "Reboot now? (y/n)"
-read -r response
-if [[ "$response" =~ ^[Yy]$ ]]; then
-    echo "Rebooting..."
-    reboot
+if [ -t 0 ]; then
+    read -r response
+    if [[ "$response" =~ ^[Yy]$ ]]; then
+        echo "Rebooting..."
+        reboot
+    else
+        echo "Please reboot manually when ready: sudo reboot"
+    fi
 else
-    echo "Please reboot manually when ready: sudo reboot"
+    echo "Non-interactive mode detected. Please reboot manually when ready: sudo reboot"
 fi
