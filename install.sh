@@ -52,8 +52,8 @@ if ! grep -qE "^[[:space:]]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
     
     # Try to add it to [all] section if it exists
     if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
-        # Insert after [all] section header
-        sed -i '/^\[all\]/a dtparam=i2c_arm=on' "$CONFIG_FILE"
+        # Insert after [all] section header (handles potential whitespace)
+        sed -i '/^[[:space:]]*\[all\]/a dtparam=i2c_arm=on' "$CONFIG_FILE"
         echo "Added dtparam=i2c_arm=on to [all] section"
     else
         # No [all] section, append to end of file
@@ -191,7 +191,7 @@ echo "Step 7/11: Configuring I2S interface in /boot/firmware/config.txt..."
 
 # Remove old dtparam=i2s=on if present
 if grep -qE "^[[:space:]]*dtparam=i2s=on" "$CONFIG_FILE"; then
-    sed -i 's/^[[:space:]]*dtparam=i2s=on/#dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap/' "$CONFIG_FILE"
+    sed -i 's/^\([[:space:]]*\)dtparam=i2s=on/#\1dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap/' "$CONFIG_FILE"
     echo "Replaced dtparam=i2s=on with dtoverlay=i2s-mmap"
 fi
 

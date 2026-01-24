@@ -27,7 +27,7 @@ log_message "Starting WM8960 soundcard initialization..."
 # Verify I2C is enabled (should be done via config.txt by install script)
 log_message "Verifying I2C interface is available..."
 if ! i2cdetect -y 1 >/dev/null 2>&1; then
-  log_error_exit "I2C bus not available. Please add 'dtparam=i2c_arm=on' to /boot/firmware/config.txt [all] section and reboot." 2
+  log_error_exit "I2C bus not available. Please add 'dtparam=i2c_arm=on' to config.txt [all] section (usually /boot/firmware/config.txt or /boot/config.txt) and reboot." 2
 fi
 log_message "I2C interface verified"
 
