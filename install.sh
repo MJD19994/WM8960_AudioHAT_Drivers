@@ -17,7 +17,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 echo "Step 1/12: Updating package lists..."
-timeout 120 apt-get update || echo "Warning: apt-get update timed out or failed (continuing anyway)"
+timeout 120 apt-get update || echo "Warning: apt-get update timed out or failed. Package installations may fail if repositories are not accessible."
 
 echo ""
 echo "Step 2/12: Installing kernel headers..."
@@ -248,7 +248,7 @@ fi
 
 # Add informational comment about dynamic loading benefits
 # Dynamic loading allows for I2C detection and proper initialization timing
-if ! grep -q "wm8960-soundcard overlay loaded dynamically" "$CONFIG_FILE"; then
+if ! grep -qF "# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection" "$CONFIG_FILE"; then
     echo "" >> "$CONFIG_FILE"
     echo "# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection" >> "$CONFIG_FILE"
 fi
