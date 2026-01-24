@@ -243,7 +243,7 @@ dtparam=i2c_arm=on
 - The `dtparam=i2c_arm=on` setting must ONLY appear ONCE in config.txt
 - It should be in the `[all]` section to work on all Raspberry Pi models
 - The WM8960 service script no longer calls `dtparam i2c_arm=on` to avoid duplicate entries
-- Multiple dtparam calls in the overlay list waste system resources and can cause conflicts
+- Multiple dtparam calls accumulate in the device tree overlay list, wasting kernel memory and potentially causing driver initialization failures
 
 ### Known Conflicts
 

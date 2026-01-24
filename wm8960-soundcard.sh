@@ -53,7 +53,7 @@ if [ "x${is_1a}" != "x" ]; then
   log_message "SUCCESS: WM8960 codec detected at I2C address 0x1a (value: ${is_1a})"
   
   # Check if overlay is already loaded before attempting to load
-  if dtoverlay -l | grep -q "wm8960-soundcard"; then
+  if dtoverlay -l | grep -qE "^[0-9]+_wm8960-soundcard"; then
     log_message "WM8960 overlay already loaded, skipping overlay load"
   else
     log_message "Loading wm8960-soundcard device tree overlay..."
