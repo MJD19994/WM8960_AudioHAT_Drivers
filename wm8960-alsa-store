@@ -31,6 +31,8 @@ fi
 # Clean up old backup files (keep last 5 for auto-save users)
 log_message "Cleaning up old backup files..."
 BACKUP_DIR="/var/lib/alsa"
+# These backup files are automatically created by the wm8960-soundcard.sh script
+# during boot-time ALSA state restoration (see lines 78-88 of wm8960-soundcard.sh)
 BACKUP_PATTERN="asound.state.backup.*"
 
 # Count existing backups
