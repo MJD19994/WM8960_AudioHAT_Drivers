@@ -288,6 +288,15 @@ else
     exit 1
 fi
 
+# Copy volume preset utility to /usr/bin
+if [ -f "$SCRIPT_DIR/wm8960-volume" ]; then
+    cp "$SCRIPT_DIR/wm8960-volume" /usr/bin/wm8960-volume
+    chmod +x /usr/bin/wm8960-volume
+    echo "Installed wm8960-volume preset utility"
+else
+    echo "Warning: wm8960-volume not found in script directory (optional)"
+fi
+
 echo ""
 echo "Step 10/13: Installing systemd service file..."
 # Copy systemd service file
@@ -413,7 +422,12 @@ echo "==============================================="
 echo "Post-Installation Verification"
 echo "==============================================="
 echo ""
-echo "After rebooting, verify the installation with these commands:"
+echo "After rebooting, run the automated test script:"
+echo ""
+echo "   sudo bash test-audio.sh          # Full test with speaker & mic checks"
+echo "   sudo bash test-audio.sh --quick   # Quick automated checks only"
+echo ""
+echo "Or verify manually with these commands:"
 echo ""
 echo "1. Check service status:"
 echo "   sudo systemctl status wm8960-soundcard.service"

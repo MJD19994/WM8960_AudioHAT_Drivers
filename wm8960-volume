@@ -1,0 +1,272 @@
+#!/bin/bash
+# WM8960 Audio HAT - Volume Preset Utility
+# Sets mixer controls to tested, known-good values for different use cases
+# Usage: sudo wm8960-volume <preset>
+
+CARD="wm8960soundcard"
+
+# Verify sound card exists
+check_card() {
+    if ! aplay -l 2>/dev/null | grep -qi "$CARD"; then
+        echo "Error: WM8960 sound card not found. Is the service running?"
+        echo "  sudo systemctl status wm8960-soundcard.service"
+        exit 1
+    fi
+}
+
+# Helper to set a control value quietly
+cset() {
+    amixer -c "$CARD" cset name="$1" "$2" >/dev/null 2>&1 || \
+        echo "  Warning: Failed to set '$1'"
+}
+
+# ---------- Presets ----------
+
+preset_speakers() {
+    echo "Applying preset: speakers"
+    echo "  Moderate speaker volume, PCM output enabled"
+
+    # DAC output
+    cset 'Playback Volume' 235,235               # -7.8dB (range 0-255, 0dB=255)
+    cset 'PCM Playback -6dB Switch' off
+
+    # Speaker output: ~0dB (range 0-127, 0dB=121, max=+6dB at 127)
+    cset 'Speaker Playback Volume' 121,121
+    cset 'Speaker DC Volume' 3                    # Class D boost moderate
+    cset 'Speaker AC Volume' 3
+
+    # Headphone output: muted
+    cset 'Headphone Playback Volume' 0,0
+
+    # Output mixer: PCM only (no bypass/passthrough)
+    cset 'Left Output Mixer PCM Playback Switch' on
+    cset 'Right Output Mixer PCM Playback Switch' on
+    cset 'Left Output Mixer Boost Bypass Switch' off
+    cset 'Right Output Mixer Boost Bypass Switch' off
+    cset 'Left Output Mixer LINPUT3 Switch' off
+    cset 'Right Output Mixer RINPUT3 Switch' off
+
+    echo "  Done. Speaker output at 0dB."
+}
+
+preset_headphones() {
+    echo "Applying preset: headphones"
+    echo "  Lower headphone volume, speakers muted"
+
+    # DAC output
+    cset 'Playback Volume' 235,235
+    cset 'PCM Playback -6dB Switch' off
+
+    # Headphone output: -6dB (comfortable listening, 115 ~ -6dB)
+    cset 'Headphone Playback Volume' 115,115
+    cset 'Headphone Playback ZC Switch' on        # Zero-cross to reduce pops
+
+    # Speaker output: muted
+    cset 'Speaker Playback Volume' 0,0
+
+    # Output mixer: PCM only
+    cset 'Left Output Mixer PCM Playback Switch' on
+    cset 'Right Output Mixer PCM Playback Switch' on
+    cset 'Left Output Mixer Boost Bypass Switch' off
+    cset 'Right Output Mixer Boost Bypass Switch' off
+    cset 'Left Output Mixer LINPUT3 Switch' off
+    cset 'Right Output Mixer RINPUT3 Switch' off
+
+    echo "  Done. Headphone output at -6dB."
+}
+
+preset_recording() {
+    echo "Applying preset: recording"
+    echo "  Mic capture enabled, moderate gain, ALC off for clean manual control"
+
+    # Capture: enable both channels, moderate gain (~+20dB, 50 out of 63)
+    cset 'Capture Switch' on,on
+    cset 'Capture Volume' 50,50
+    cset 'Capture Volume ZC Switch' on,on
+
+    # Input boost: moderate (+20dB via LINPUT1/RINPUT1)
+    cset 'Left Input Boost Mixer LINPUT1 Volume' 2
+    cset 'Right Input Boost Mixer RINPUT1 Volume' 2
+    cset 'Left Input Boost Mixer LINPUT2 Volume' 0
+    cset 'Right Input Boost Mixer RINPUT2 Volume' 0
+    cset 'Left Input Boost Mixer LINPUT3 Volume' 0
+    cset 'Right Input Boost Mixer RINPUT3 Volume' 0
+
+    # Input mixer: boost enabled
+    cset 'Left Input Mixer Boost Switch' on
+    cset 'Right Input Mixer Boost Switch' on
+
+    # ALC off for manual control during recording
+    cset 'ALC Function' Off
+    cset 'Noise Gate Switch' off
+
+    # ADC: HPF on to remove DC offset
+    cset 'ADC High Pass Filter Switch' on
+    cset 'ADC Polarity' 'No Inversion'
+
+    echo "  Done. Mic capture at moderate gain, ALC disabled."
+}
+
+preset_voice() {
+    echo "Applying preset: voice"
+    echo "  Optimized for voice assistant / speech capture with hardware ALC"
+
+    # Capture: enable both channels, high gain for far-field
+    cset 'Capture Switch' on,on
+    cset 'Capture Volume' 55,55                   # ~+25dB
+    cset 'Capture Volume ZC Switch' on,on
+
+    # Input boost: higher for far-field voice pickup
+    cset 'Left Input Boost Mixer LINPUT1 Volume' 3
+    cset 'Right Input Boost Mixer RINPUT1 Volume' 3
+    cset 'Left Input Boost Mixer LINPUT2 Volume' 0
+    cset 'Right Input Boost Mixer RINPUT2 Volume' 0
+    cset 'Left Input Boost Mixer LINPUT3 Volume' 0
+    cset 'Right Input Boost Mixer RINPUT3 Volume' 0
+
+    # Input mixer: boost enabled
+    cset 'Left Input Mixer Boost Switch' on
+    cset 'Right Input Mixer Boost Switch' on
+
+    # ALC: stereo, tuned for speech (-12dB target)
+    # Target 8 = -12dB (range 0-15, maps to -22.5dB to -6dB, step 1.5dB)
+    cset 'ALC Function' Stereo
+    cset 'ALC Target' 8
+    cset 'ALC Max Gain' 5                         # Limit max amplification to avoid noise
+    cset 'ALC Min Gain' 0
+    cset 'ALC Hold Time' 3                        # Hold before releasing (~100ms)
+    cset 'ALC Mode' ALC
+    cset 'ALC Decay' 3                            # Moderate release
+    cset 'ALC Attack' 2                           # Fast attack for speech transients
+
+    # Noise gate: enabled with moderate threshold to cut silence noise
+    cset 'Noise Gate Switch' on
+    cset 'Noise Gate Threshold' 8
+
+    # ADC: HPF on to remove DC offset and low rumble
+    cset 'ADC High Pass Filter Switch' on
+    cset 'ADC Polarity' 'No Inversion'
+
+    # Speaker output: moderate (for TTS playback while listening)
+    cset 'Playback Volume' 235,235
+    cset 'Speaker Playback Volume' 115,115        # Slightly reduced to limit echo
+    cset 'Speaker DC Volume' 2
+    cset 'Speaker AC Volume' 2
+    cset 'Left Output Mixer PCM Playback Switch' on
+    cset 'Right Output Mixer PCM Playback Switch' on
+
+    echo "  Done. Voice capture with ALC, noise gate, and HPF enabled."
+    echo "  Tip: For best results, pair with software echo cancellation (see ROADMAP.md Phase 4)."
+}
+
+preset_max() {
+    echo "Applying preset: max"
+    echo "  Maximum safe volume for all outputs"
+
+    # DAC at 0dB (max without clipping)
+    cset 'Playback Volume' 255,255
+    cset 'PCM Playback -6dB Switch' off
+
+    # Speaker at +6dB (hardware max)
+    cset 'Speaker Playback Volume' 127,127
+    cset 'Speaker DC Volume' 5
+    cset 'Speaker AC Volume' 5
+
+    # Headphone at +6dB (hardware max)
+    cset 'Headphone Playback Volume' 127,127
+
+    # Capture at max
+    cset 'Capture Switch' on,on
+    cset 'Capture Volume' 63,63
+    cset 'Left Input Boost Mixer LINPUT1 Volume' 3
+    cset 'Right Input Boost Mixer RINPUT1 Volume' 3
+    cset 'Left Input Mixer Boost Switch' on
+    cset 'Right Input Mixer Boost Switch' on
+
+    # Output mixer: PCM enabled
+    cset 'Left Output Mixer PCM Playback Switch' on
+    cset 'Right Output Mixer PCM Playback Switch' on
+
+    echo "  Done. All outputs at maximum. Warning: may be loud!"
+}
+
+preset_reset() {
+    echo "Applying preset: reset"
+    echo "  Restoring factory defaults from shipped state file..."
+
+    STATE_FILE="/etc/wm8960-soundcard/wm8960_asound.state"
+    if [ ! -f "$STATE_FILE" ]; then
+        echo "  Error: State file not found at $STATE_FILE"
+        exit 1
+    fi
+
+    if alsactl restore -f "$STATE_FILE" 2>/dev/null; then
+        echo "  Done. Factory defaults restored."
+    else
+        echo "  Error: Failed to restore ALSA state."
+        exit 1
+    fi
+}
+
+show_levels() {
+    echo "Current WM8960 mixer levels:"
+    echo ""
+    echo "=== Output ==="
+    amixer -c "$CARD" sget 'Playback Volume' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    amixer -c "$CARD" sget 'Speaker Playback Volume' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    amixer -c "$CARD" sget 'Headphone Playback Volume' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    echo ""
+    echo "=== Input ==="
+    amixer -c "$CARD" sget 'Capture Volume' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    amixer -c "$CARD" sget 'Capture Switch' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    echo ""
+    echo "=== Processing ==="
+    amixer -c "$CARD" sget 'ALC Function' 2>/dev/null | grep "Item0:" || true
+    amixer -c "$CARD" sget 'Noise Gate Switch' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    amixer -c "$CARD" sget 'ADC High Pass Filter Switch' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+}
+
+# ---------- Main ----------
+
+usage() {
+    echo "WM8960 Audio HAT - Volume Preset Utility"
+    echo ""
+    echo "Usage: sudo wm8960-volume <preset>"
+    echo ""
+    echo "Presets:"
+    echo "  speakers     Moderate speaker volume, headphones muted"
+    echo "  headphones   Comfortable headphone volume, speakers muted"
+    echo "  recording    Mic enabled with moderate gain, ALC off"
+    echo "  voice        Voice assistant: ALC + noise gate + HPF for speech"
+    echo "  max          Maximum safe volume for all outputs"
+    echo "  reset        Restore factory defaults from shipped state file"
+    echo "  show         Display current mixer levels"
+    echo ""
+    echo "Examples:"
+    echo "  sudo wm8960-volume speakers       # Set up for speaker playback"
+    echo "  sudo wm8960-volume voice           # Optimize for voice assistant"
+    echo "  sudo wm8960-volume show            # Check current levels"
+    echo "  sudo wm8960-volume reset           # Restore to defaults"
+}
+
+if [ $# -eq 0 ]; then
+    usage
+    exit 1
+fi
+
+case "$1" in
+    speakers)    check_card; preset_speakers ;;
+    headphones)  check_card; preset_headphones ;;
+    recording)   check_card; preset_recording ;;
+    voice)       check_card; preset_voice ;;
+    max)         check_card; preset_max ;;
+    reset)       check_card; preset_reset ;;
+    show)        check_card; show_levels ;;
+    --help|-h)   usage ;;
+    *)
+        echo "Unknown preset: $1"
+        echo ""
+        usage
+        exit 1
+        ;;
+esac
