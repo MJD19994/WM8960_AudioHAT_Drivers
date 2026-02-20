@@ -17,8 +17,8 @@ for arg in "$@"; do
             echo "  --quick, -q   Skip interactive speaker and microphone tests"
             echo "  --help, -h    Show this help message"
             echo ""
-            echo "Checks 1-6 are automated (no user interaction needed)."
-            echo "Checks 7-8 test actual audio playback and recording (interactive)."
+            echo "Checks 1-8 are automated (no user interaction needed)."
+            echo "Checks 9-10 test actual audio playback and recording (interactive)."
             exit 0
             ;;
     esac
@@ -66,8 +66,34 @@ echo "WM8960 Audio HAT - Audio Test"
 echo "==============================================="
 echo ""
 
-# ---------- Check 1: I2C Detection ----------
-echo "Check 1/8: I2C codec detection..."
+# ---------- Check 1: Service Status ----------
+echo "Check 1/10: Systemd service status..."
+if systemctl is-active --quiet wm8960-soundcard.service 2>/dev/null; then
+    pass "wm8960-soundcard.service is active"
+elif systemctl is-enabled --quiet wm8960-soundcard.service 2>/dev/null; then
+    fail "wm8960-soundcard.service is enabled but not active (check: sudo systemctl status wm8960-soundcard.service)"
+else
+    fail "wm8960-soundcard.service is not enabled (run install.sh first)"
+fi
+
+# ---------- Check 2: DKMS Status ----------
+echo "Check 2/10: DKMS module status..."
+if ! command -v dkms >/dev/null 2>&1; then
+    fail "dkms not installed"
+else
+    running_kernel=$(uname -r)
+    dkms_output=$(dkms status wm8960-soundcard/1.0 -k "$running_kernel" 2>/dev/null)
+    if echo "$dkms_output" | grep -q "installed"; then
+        pass "DKMS module installed for kernel $running_kernel"
+    elif echo "$dkms_output" | grep -q "built"; then
+        fail "DKMS module built but not installed for kernel $running_kernel (run: sudo dkms install wm8960-soundcard/1.0)"
+    else
+        fail "DKMS module not built for kernel $running_kernel (check: sudo cat /var/log/wm8960-soundcard.log)"
+    fi
+fi
+
+# ---------- Check 3: I2C Detection ----------
+echo "Check 3/10: I2C codec detection..."
 if ! command -v i2cdetect >/dev/null 2>&1; then
     fail "i2cdetect not found (install i2c-tools)"
 elif ! i2cdetect -y 1 0x1a 0x1a 2>/dev/null | grep -qE '(1a|UU)'; then
@@ -76,8 +102,8 @@ else
     pass "WM8960 codec detected at I2C address 0x1a"
 fi
 
-# ---------- Check 2: Kernel Modules ----------
-echo "Check 2/8: Kernel modules..."
+# ---------- Check 4: Kernel Modules ----------
+echo "Check 4/10: Kernel modules..."
 codec_loaded=false
 soundcard_loaded=false
 
@@ -98,8 +124,8 @@ else
     fail "No WM8960 kernel modules loaded (service running?)"
 fi
 
-# ---------- Check 3: Sound Card Visible ----------
-echo "Check 3/8: ALSA sound card..."
+# ---------- Check 5: Sound Card Visible ----------
+echo "Check 5/10: ALSA sound card..."
 if [ -f /proc/asound/cards ]; then
     if grep -qi "wm8960" /proc/asound/cards; then
         card_info=$(grep -i "wm8960" /proc/asound/cards | head -1 | sed 's/^[[:space:]]*//')
@@ -111,24 +137,24 @@ else
     fail "/proc/asound/cards not found"
 fi
 
-# ---------- Check 4: Playback Device ----------
-echo "Check 4/8: Playback device..."
+# ---------- Check 6: Playback Device ----------
+echo "Check 6/10: Playback device..."
 if aplay -l 2>/dev/null | grep -qi "wm8960"; then
     pass "Playback device available"
 else
     fail "No WM8960 playback device found (aplay -l)"
 fi
 
-# ---------- Check 5: Capture Device ----------
-echo "Check 5/8: Capture device..."
+# ---------- Check 7: Capture Device ----------
+echo "Check 7/10: Capture device..."
 if arecord -l 2>/dev/null | grep -qi "wm8960"; then
     pass "Capture device available"
 else
     fail "No WM8960 capture device found (arecord -l)"
 fi
 
-# ---------- Check 6: ALSA Configuration ----------
-echo "Check 6/8: ALSA configuration..."
+# ---------- Check 8: ALSA Configuration ----------
+echo "Check 8/10: ALSA configuration..."
 if [ -L /etc/asound.conf ]; then
     target=$(readlink -f /etc/asound.conf)
     if [ "$target" = "/etc/wm8960-soundcard/asound.conf" ]; then
@@ -150,8 +176,8 @@ elif ! [ -t 0 ]; then
     interactive=false
 fi
 
-# ---------- Check 7: Speaker Test ----------
-echo "Check 7/8: Speaker playback test..."
+# ---------- Check 9: Speaker Test ----------
+echo "Check 9/10: Speaker playback test..."
 if ! $interactive; then
     skip "Speaker test (use interactive mode to test)"
 else
@@ -169,8 +195,8 @@ else
     fi
 fi
 
-# ---------- Check 8: Microphone Capture Test ----------
-echo "Check 8/8: Microphone capture test..."
+# ---------- Check 10: Microphone Capture Test ----------
+echo "Check 10/10: Microphone capture test..."
 if ! $interactive; then
     skip "Microphone test (use interactive mode to test)"
 else

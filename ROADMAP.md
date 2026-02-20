@@ -76,7 +76,9 @@ Support for hardware features beyond the WM8960 codec itself.
 Quality-of-life scripts and tools.
 
 ### 3.1 Audio Test Script
-- [x] `test-audio.sh` with 8 automated + interactive checks:
+- [x] `test-audio.sh` with 10 automated + interactive checks:
+  - Systemd service status (active/enabled)
+  - DKMS module installed for running kernel
   - I2C codec detection at 0x1a
   - Kernel module verification (codec + soundcard)
   - Sound card visible in `/proc/asound/cards`

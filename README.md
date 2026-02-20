@@ -35,7 +35,7 @@ sudo apt upgrade -y
 sudo reboot
 ```
 
-> **Why reboot first?** The install script builds the kernel module for the *running* kernel. If you upgrade the kernel and install without rebooting, the module gets built for the old kernel. After reboot into the new kernel, audio won't work until the service auto-rebuilds it on the next boot (adding ~30s to boot time). Rebooting first avoids this entirely.
+> **Why reboot first?** The install script builds the kernel module for the *running* kernel. If you upgrade the kernel and install without rebooting, the module gets built for the old kernel. On the next boot into the new kernel, the service will auto-rebuild the DKMS module (~30s extra boot time), but audio will still not work until a **second reboot** loads the freshly built module. Rebooting first avoids this entirely.
 
 ### 2. Install Git
 Install Git if not already present:
@@ -234,17 +234,21 @@ cd ~/WM8960_AudioHAT_Drivers
 sudo bash test-audio.sh --quick
 ```
 
-The test script runs 8 checks:
-1. I2C codec detection at address 0x1a
-2. Kernel module verification (codec + soundcard)
-3. Sound card visible in ALSA
-4. Playback device available
-5. Capture device available
-6. ALSA configuration symlink correct
-7. Speaker playback test (interactive - plays tone, asks for confirmation)
-8. Microphone capture test (interactive - records 3s, plays back, asks for confirmation)
+The test script runs 10 checks:
+1. Systemd service status (active/enabled)
+2. DKMS module installed for running kernel
+3. I2C codec detection at address 0x1a
+4. Kernel module verification (codec + soundcard)
+5. Sound card visible in ALSA
+6. Playback device available
+7. Capture device available
+8. ALSA configuration symlink correct
+9. Speaker playback test (interactive - plays tone, asks for confirmation)
+10. Microphone capture test (interactive - records 3s, plays back, asks for confirmation)
 
-Checks 7-8 are automatically skipped in `--quick` mode or when running non-interactively (e.g., piped or in a script). The exit code equals the number of failed tests (0 = all pass).
+Checks 9-10 are automatically skipped in `--quick` mode or when running non-interactively (e.g., piped or in a script). The exit code equals the number of failed tests (0 = all pass).
+
+**Note:** For detailed DKMS auto-rebuild diagnostics, review the service log: `sudo cat /var/log/wm8960-soundcard.log`
 
 ## Required config.txt Settings
 
