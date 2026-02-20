@@ -30,8 +30,9 @@ rm -f /usr/bin/wm8960-soundcard
 rm -f /etc/systemd/system/wm8960-alsa-store.service
 rm -f /etc/systemd/system/wm8960-alsa-store.timer
 rm -f /usr/bin/wm8960-alsa-store
+rm -f /usr/bin/wm8960-volume
 systemctl daemon-reload
-echo "Service files removed"
+echo "Service files and utilities removed"
 
 echo ""
 echo "Step 4/10: Removing ALSA configuration symlink and backups..."

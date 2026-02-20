@@ -3,6 +3,9 @@
 # This script dynamically loads the WM8960 overlay after detecting the I2C codec
 # It runs on boot via systemd service and ensures proper initialization order
 
+# Ensure sbin directories are in PATH (systemd services may not include them)
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+
 # Enable debug mode if DEBUG environment variable is set
 if [ "${DEBUG}" = "1" ]; then
   set -x
@@ -23,6 +26,72 @@ log_error_exit() {
 }
 
 log_message "Starting WM8960 soundcard initialization..."
+
+# --- DKMS Auto-Rebuild Check ---
+# On Raspberry Pi OS, kernel updates often install the image before the headers.
+# The DKMS postinst hook fires when the image is installed, but skips the build
+# because headers aren't available yet. When headers install seconds later, no
+# hook retriggers DKMS. This leaves the custom WM8960 driver unbuilt for the new
+# kernel, causing a silent fallback to the mainline driver which fails with
+# "No MCLK configured". This boot-time check catches that case.
+ensure_dkms_module() {
+  local running_kernel
+  running_kernel="$(uname -r)"
+  local dkms_module="wm8960-soundcard"
+  local dkms_version="1.0"
+
+  # Skip if DKMS is not installed (user may be using mainline driver intentionally)
+  if ! command -v dkms >/dev/null 2>&1; then
+    log_message "DKMS not installed, skipping auto-rebuild check"
+    return 0
+  fi
+
+  # Skip if DKMS source is not registered
+  if ! dkms status "$dkms_module/$dkms_version" 2>/dev/null | grep -q "$dkms_module"; then
+    log_message "DKMS module $dkms_module not registered, skipping auto-rebuild check"
+    return 0
+  fi
+
+  # Check if module is already built+installed for the running kernel
+  if dkms status "$dkms_module/$dkms_version" -k "$running_kernel" 2>/dev/null | grep -q "installed"; then
+    log_message "DKMS module $dkms_module/$dkms_version is installed for kernel $running_kernel"
+    return 0
+  fi
+
+  # Module is NOT installed for running kernel - attempt rebuild
+  log_message "WARNING: DKMS module $dkms_module/$dkms_version is NOT installed for kernel $running_kernel"
+  log_message "This typically happens after a kernel update. Attempting auto-rebuild..."
+
+  # Check if kernel headers are available
+  if [ ! -d "/lib/modules/$running_kernel/build/include" ]; then
+    log_message "ERROR: Kernel headers not found for $running_kernel"
+    log_message "Install them with: sudo apt-get install linux-headers-$running_kernel"
+    log_message "Then rebuild with: sudo dkms install $dkms_module/$dkms_version -k $running_kernel"
+    return 1
+  fi
+
+  # Attempt build and install
+  log_message "Building DKMS module for kernel $running_kernel..."
+  dkms build "$dkms_module/$dkms_version" -k "$running_kernel" 2>&1 | while IFS= read -r line; do log_message "  dkms build: $line"; done
+  if [ "${PIPESTATUS[0]}" -eq 0 ]; then
+    log_message "DKMS build succeeded"
+  else
+    log_message "ERROR: DKMS build failed for kernel $running_kernel"
+    log_message "Check build log: /var/lib/dkms/$dkms_module/$dkms_version/build/make.log"
+    return 1
+  fi
+
+  log_message "Installing DKMS module for kernel $running_kernel..."
+  dkms install "$dkms_module/$dkms_version" -k "$running_kernel" 2>&1 | while IFS= read -r line; do log_message "  dkms install: $line"; done
+  if [ "${PIPESTATUS[0]}" -eq 0 ]; then
+    log_message "DKMS auto-rebuild completed successfully for kernel $running_kernel"
+  else
+    log_message "ERROR: DKMS install failed for kernel $running_kernel"
+    return 1
+  fi
+}
+
+ensure_dkms_module || log_message "WARNING: DKMS auto-rebuild failed - audio may not work (see errors above)"
 
 # Verify I2C is enabled (should be done via config.txt by install script)
 log_message "Verifying I2C interface is available..."

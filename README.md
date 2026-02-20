@@ -23,26 +23,19 @@ Before installing the WM8960 Audio HAT drivers, ensure you have:
   - Internet connection for downloading dependencies
   - Root/sudo access
   
-- **System Preparation:**
-
-First, update your system and install git:
-
-```bash
-sudo apt update
-sudo apt upgrade -y
-sudo apt install git -y
-```
-
-**Note:** The `apt update` and `apt upgrade` steps are essential for ensuring your kernel and package database are current before driver installation.
+- **System Preparation:** Ensure your system is fully updated and rebooted before installation. See [Installation Steps](#installation-steps) below.
 
 ## Installation Steps
 
-### 1. Update System
-First, ensure your system is up to date:
+### 1. Update System and Reboot
+First, ensure your system is up to date. **You must reboot after upgrading** so the install script builds the driver for the correct kernel:
 ```bash
 sudo apt update
 sudo apt upgrade -y
+sudo reboot
 ```
+
+> **Why reboot first?** The install script builds the kernel module for the *running* kernel. If you upgrade the kernel and install without rebooting, the module gets built for the old kernel. On the next boot into the new kernel, the service will auto-rebuild the DKMS module (~30s extra boot time), but audio will still not work until a **second reboot** loads the freshly built module. Rebooting first avoids this entirely.
 
 ### 2. Install Git
 Install Git if not already present:
@@ -227,6 +220,36 @@ sudo dkms status
 
 If all seven checks pass, your WM8960 Audio HAT is properly installed and ready to use!
 
+### Quick Verification: Automated Test Script
+
+Instead of running the manual checks above, you can use the automated test script to verify everything at once:
+
+```bash
+# Full test including interactive speaker and microphone checks
+cd ~/WM8960_AudioHAT_Drivers
+sudo bash test-audio.sh
+
+# Quick automated checks only (no audio playback/recording)
+cd ~/WM8960_AudioHAT_Drivers
+sudo bash test-audio.sh --quick
+```
+
+The test script runs 10 checks:
+1. Systemd service status (active/enabled)
+2. DKMS module installed for running kernel
+3. I2C codec detection at address 0x1a
+4. Kernel module verification (codec + soundcard)
+5. Sound card visible in ALSA
+6. Playback device available
+7. Capture device available
+8. ALSA configuration symlink correct
+9. Speaker playback test (interactive - plays tone, asks for confirmation)
+10. Microphone capture test (interactive - records 3s, plays back, asks for confirmation)
+
+Checks 9-10 are automatically skipped in `--quick` mode or when running non-interactively (e.g., piped or in a script). The exit code equals the number of failed tests (0 = all pass).
+
+**Note:** For detailed DKMS auto-rebuild diagnostics, review the service log: `sudo cat /var/log/wm8960-soundcard.log`
+
 ## Required config.txt Settings
 
 The WM8960 driver requires specific settings in `/boot/firmware/config.txt` (or `/boot/config.txt` on older systems) for proper operation. The install script adds these automatically, but if you experience issues, verify these settings are present:
@@ -371,7 +394,7 @@ The WM8960 kernel module now uses a **unique platform driver name** (`asoc-wm896
 - **Better Error Messages:** Clear indication if something goes wrong
 - **Follows Best Practices:** Uses unique, descriptive driver naming conventions
 
-#### Why Dynamic Loading?
+#### Additional Reasons for Dynamic Loading
 
 While the driver name conflict is resolved, the WM8960 driver still uses **dynamic loading** instead of static loading in `/boot/firmware/config.txt` for other important reasons:
 
@@ -441,6 +464,49 @@ Save your settings:
 ```bash
 sudo alsactl store
 ```
+
+### Volume Presets
+
+The `wm8960-volume` utility provides tested, known-good mixer settings for common use cases. This is easier than manually adjusting individual controls in alsamixer.
+
+```bash
+sudo wm8960-volume <preset>
+```
+
+Available presets:
+
+| Preset | Description |
+|--------|-------------|
+| `speakers` | Moderate speaker volume (0dB), headphones muted, Class D boost enabled |
+| `headphones` | Comfortable headphone volume (-6dB), speakers muted, zero-cross enabled |
+| `recording` | Mic capture with moderate gain, ALC off for clean manual control |
+| `voice` | Optimized for voice assistants: ALC stereo + noise gate + high-pass filter |
+| `max` | Maximum safe volume for all outputs (loud!) |
+| `reset` | Restore factory defaults from the shipped state file |
+| `show` | Display current output, input, and processing levels |
+
+**Examples:**
+```bash
+# Set up for speaker playback
+sudo wm8960-volume speakers
+
+# Optimize microphone for voice assistant use
+sudo wm8960-volume voice
+
+# Check what's currently set
+sudo wm8960-volume show
+
+# Back to factory defaults
+sudo wm8960-volume reset
+```
+
+**The `voice` preset** is specifically tuned for voice assistant and speech recognition use cases. It enables:
+- Hardware ALC (Automatic Level Control) in stereo mode targeting -12dB
+- Noise gate to cut silence noise
+- ADC high-pass filter to remove DC offset and low-frequency rumble
+- Speaker output at reduced volume to minimize echo feedback
+
+**Note:** After switching presets, you can save the new settings with `sudo alsactl store` to make them persist across reboots.
 
 ## Saving Audio Settings
 
@@ -583,7 +649,22 @@ sudo systemctl restart wm8960-soundcard.service
 4. Reboot and test again
 5. Try different I2C address if your HAT uses a different one
 
-### Issue 3: No Sound Output
+### Issue 3: Audio Broke After Kernel Update
+
+**Symptoms:** Audio was working, then stopped after running `apt upgrade` and rebooting. `dmesg` shows `No MCLK configured`.
+
+**Cause:** The DKMS module wasn't rebuilt for the new kernel. This can happen due to a Raspberry Pi OS packaging race condition where kernel headers install after the kernel image.
+
+**Solutions:**
+1. Check the service log: `sudo cat /var/log/wm8960-soundcard.log`
+   - If you see "DKMS auto-rebuild completed successfully", the service fixed it automatically. A second reboot should work.
+   - If you see "Kernel headers not found", install them: `sudo apt install linux-headers-$(uname -r)` then `sudo systemctl restart wm8960-soundcard.service`
+2. Manual rebuild: `sudo dkms install wm8960-soundcard/1.0 -k $(uname -r)` then reboot
+3. Verify: `sudo dkms status` should show your kernel version as "installed"
+
+**Prevention:** The service script automatically detects and rebuilds the DKMS module on boot if needed. This adds ~30 seconds to boot time only when a rebuild is required.
+
+### Issue 4: No Sound Output
 
 **Symptoms:** Audio files play but no sound is heard
 
@@ -594,7 +675,7 @@ sudo systemctl restart wm8960-soundcard.service
 4. Check physical connections to speakers/headphones
 5. Test with: `speaker-test -t wav -c 2 -D hw:CARD=wm8960soundcard,DEV=0`
 
-### Issue 4: Wrong Card Order
+### Issue 5: Wrong Card Order
 
 **Symptoms:** WM8960 is not the default audio device
 
@@ -604,7 +685,7 @@ sudo systemctl restart wm8960-soundcard.service
 3. Or use device-specific commands: `aplay -D plughw:CARD=wm8960soundcard file.wav`
 4. Restart service: `sudo systemctl restart wm8960-soundcard.service`
 
-### Issue 5: Recording Not Working
+### Issue 6: Recording Not Working
 
 **Symptoms:** arecord produces empty or silent files
 
@@ -615,7 +696,7 @@ sudo systemctl restart wm8960-soundcard.service
 4. Verify microphone connection and power (if external)
 5. Test with: `arecord -f cd -d 5 test.wav && aplay test.wav`
 
-### Issue 6: Overlay Loading Errors
+### Issue 7: Overlay Loading Errors
 
 **Symptoms:** dmesg shows overlay-related errors
 
@@ -626,7 +707,7 @@ sudo systemctl restart wm8960-soundcard.service
 4. Ensure kernel headers match kernel version
 5. Reinstall if needed: `sudo ./install.sh`
 
-### Issue 7: Conflicts with Other Audio Devices
+### Issue 8: Conflicts with Other Audio Devices
 
 **Symptoms:** Multiple audio devices causing conflicts
 
@@ -636,7 +717,7 @@ sudo systemctl restart wm8960-soundcard.service
 3. Set explicit default device in `~/.asoundrc` or `/etc/asound.conf`
 4. Reboot after changes
 
-### Issue 8: Service Logs Show Errors
+### Issue 9: Service Logs Show Errors
 
 **Symptoms:** Errors visible in /var/log/wm8960-soundcard.log
 
@@ -652,7 +733,7 @@ sudo systemctl restart wm8960-soundcard.service
    sudo ln -s /etc/wm8960-soundcard/wm8960_asound.state /var/lib/alsa/asound.state
    ```
 
-### Issue 9: Audio Quality Problems
+### Issue 10: Audio Quality Problems
 
 **Symptoms:** Crackling, distortion, or stuttering audio
 
@@ -664,7 +745,7 @@ sudo systemctl restart wm8960-soundcard.service
 5. Ensure adequate power supply (quality USB power adapter)
 6. Update Raspberry Pi firmware: `sudo rpi-update`
 
-### Issue 10: Python Installation Fails
+### Issue 11: Python Installation Fails
 
 **Symptoms:** pip3 install command fails during installation
 
@@ -695,7 +776,7 @@ sudo ./uninstall.sh
 
 The uninstallation script will:
 1. Stop and disable the wm8960-soundcard systemd service
-2. Remove systemd service files from `/etc/systemd/system/` and `/usr/bin/`
+2. Remove systemd service files and utilities from `/etc/systemd/system/` and `/usr/bin/`
 3. Remove ALSA configuration symlinks (`/etc/asound.conf`, `/var/lib/alsa/asound.state`)
 4. Remove the ALSA configuration directory (`/etc/wm8960-soundcard/`)
 5. Remove the service log file (`/var/log/wm8960-soundcard.log`)
