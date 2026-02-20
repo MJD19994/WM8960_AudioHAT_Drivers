@@ -17,8 +17,9 @@ _codeql_detected_source_root
 *.backup
 *~
 
-# Editor files
+# Editor and tool files
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo

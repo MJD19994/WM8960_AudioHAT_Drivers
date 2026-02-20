@@ -1,0 +1,21 @@
+# Force LF line endings for all shell scripts and config files
+# These files are deployed to Linux and CRLF will break shebang execution
+*.sh text eol=lf
+*.conf text eol=lf
+*.state text eol=lf
+*.service text eol=lf
+*.timer text eol=lf
+
+# Scripts without extensions (installed to /usr/bin)
+wm8960-soundcard.sh text eol=lf
+wm8960-volume text eol=lf
+wm8960-alsa-store text eol=lf
+
+# Kernel module source
+*.c text eol=lf
+*.h text eol=lf
+Makefile text eol=lf
+dkms.conf text eol=lf
+
+# Binary overlay - do not modify
+*.dtbo binary
