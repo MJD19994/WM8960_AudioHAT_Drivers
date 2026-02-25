@@ -1,0 +1,122 @@
+/*
+ * Device Tree Overlay for WM8960 Audio HAT
+ *
+ * Configures the WM8960 codec on I2C1 (address 0x1a) with a simple-audio-card
+ * machine driver using I2S. Provides a fixed 12.288MHz MCLK reference clock
+ * (the custom DKMS codec driver actually uses the internal PLL from BCLK,
+ * but the clock node is required by the device tree binding).
+ *
+ * Audio routing:
+ *   Playback: I2S -> WM8960 DAC -> HP_L/HP_R (headphones) + SPK_LP/SPK_LN (speaker)
+ *   Capture:  Mic Jack -> LINPUT1/LINPUT3/RINPUT1/RINPUT2 -> WM8960 ADC -> I2S
+ *
+ * Overlay parameters:
+ *   alsaname  - Override the ALSA card name (default: "wm8960-soundcard")
+ *   compatible - Override the codec compatible string
+ *   master    - I2S master/slave configuration
+ *
+ * Compatible with: Keyestudio Respeaker 2-Mic, Waveshare WM8960, Seeed Respeaker 2-Mic,
+ *                  and generic WM8960 I2S audio HATs for Raspberry Pi.
+ *
+ * Decompiled from wm8960-soundcard.dtbo and annotated.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2708";
+
+	/* Enable I2S interface */
+	frag0: fragment@0 {
+		target = <&i2s>;
+
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	/* Define a fixed 12.288 MHz reference clock for the codec binding */
+	fragment@1 {
+		target-path = "/";
+
+		__overlay__ {
+
+			wm8960_mclk: wm8960_mclk {
+				compatible = "fixed-clock";
+				#clock-cells = <0x00>;
+				clock-frequency = <0xbb8000>;  /* 12,288,000 Hz (12.288 MHz) */
+			};
+		};
+	};
+
+	/* WM8960 codec on I2C1 bus, address 0x1a */
+	fragment@2 {
+		target = <&i2c1>;
+
+		__overlay__ {
+			#address-cells = <0x01>;
+			#size-cells = <0x00>;
+			status = "okay";
+
+			wm8960: wm8960@1a {
+				compatible = "wlf,wm8960";
+				reg = <0x1a>;
+				#sound-dai-cells = <0x00>;
+				AVDD-supply = <&vdd_5v0_reg>;  /* Analog supply: 5V */
+				DVDD-supply = <&vdd_3v3_reg>;  /* Digital supply: 3.3V */
+			};
+		};
+	};
+
+	/* Simple audio card: ties I2S CPU DAI to WM8960 codec DAI */
+	fragment@3 {
+		target = <&sound>;
+
+		slave_overlay: __overlay__ {
+			compatible = "simple-audio-card";
+			simple-audio-card,format = "i2s";
+			simple-audio-card,name = "wm8960-soundcard";
+			status = "okay";
+
+			/* ALSA widget definitions */
+			simple-audio-card,widgets =
+				"Microphone", "Mic Jack",
+				"Line", "Line In",
+				"Line", "Line Out",
+				"Speaker", "Speaker",
+				"Headphone", "Headphone Jack";
+
+			/* Audio routing: connect widgets to codec pins */
+			simple-audio-card,routing =
+				"Headphone Jack", "HP_L",
+				"Headphone Jack", "HP_R",
+				"Speaker", "SPK_LP",
+				"Speaker", "SPK_LN",
+				"LINPUT1", "Mic Jack",
+				"LINPUT3", "Mic Jack",
+				"RINPUT1", "Mic Jack",
+				"RINPUT2", "Mic Jack";
+
+			/* CPU side: Raspberry Pi I2S */
+			simple-audio-card,cpu {
+				sound-dai = <&i2s>;
+			};
+
+			/* Codec side: WM8960 with MCLK reference */
+			dailink0_slave: simple-audio-card,codec {
+				sound-dai = <&wm8960>;
+				clocks = <&wm8960_mclk>;
+				clock-names = "mclk";
+			};
+		};
+	};
+
+	/* Overlay parameters exposed to config.txt dtoverlay= */
+	__overrides__ {
+		alsaname = <&slave_overlay>, "simple-audio-card,name";
+		compatible = <&wm8960>, "compatible";
+		master = <&frag0>, "=2!3";  /* I2S master/slave toggle */
+	};
+
+};
