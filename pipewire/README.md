@@ -104,7 +104,7 @@ The configuration file (`wireplumber-wm8960.conf`) uses WirePlumber's ALSA monit
 - **WM8960 priority:** 1500 (sink and source)
 - **HDMI default priority:** ~1000
 
-WirePlumber automatically selects the highest-priority device as the default. The `~` prefix in node matching enables glob patterns, so `~alsa_output.platform-wm8960*` matches any WM8960 output node regardless of the exact platform path.
+WirePlumber automatically selects the highest-priority device as the default. The rules match on `alsa.card_name = "wm8960-soundcard"` and `media.class` (Audio/Sink or Audio/Source), which are stable identifiers regardless of the platform device path.
 
 ## Troubleshooting
 
@@ -124,7 +124,7 @@ WirePlumber automatically selects the highest-priority device as the default. Th
    ```bash
    pw-cli list-objects Node | grep -E "node.name|node.description"
    ```
-   The node names should match the pattern `alsa_output.platform-wm8960*`.
+   Look for nodes with `alsa.card_name = "wm8960-soundcard"` in the output.
 
 ### PipeWire Not Detecting the Sound Card
 
