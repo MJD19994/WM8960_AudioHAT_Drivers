@@ -23,3 +23,5 @@ _codeql_detected_source_root
 .claude/
 *.swp
 *.swo
+
+ROADMAP.md

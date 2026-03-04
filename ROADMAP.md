@@ -18,15 +18,16 @@
 Core audio features that improve the user experience on desktop and headless setups.
 
 ### 1.1 PipeWire Configuration
-- [ ] Detect if PipeWire is running (default on Trixie/Bookworm desktop)
-- [ ] Ship WirePlumber rules to set WM8960 as default sink/source- [ ] Configure proper sample rate and buffer sizes
-- [ ] Handle coexistence with HDMI audio (priority/profile switching)
+- [x] Detect if PipeWire is running (default on Trixie/Bookworm desktop)
+- [x] Ship WirePlumber rules to set WM8960 as default sink/source
+- [ ] Configure proper sample rate and buffer sizes
+- [x] Handle coexistence with HDMI audio (priority/profile switching)
 
 ### 1.2 PulseAudio Configuration
-- [ ] Ship `default.pa` snippet for PulseAudio setups
-- [ ] Set WM8960 as default sink/source
+- [x] Ship `default.pa` snippet for PulseAudio setups
+- [x] Set WM8960 as default sink/source
 - [ ] Configure proper sample rate for voice and music use cases
-- [ ] Install conditionally (only if PulseAudio is present)
+- [x] Install conditionally (only if PulseAudio is present)
 
 ### 1.3 Headphone Jack Detection
 - [ ] Research WM8960 HP_L pin jack detect via ADDCTL1/ADDCTL2 registers

@@ -6,6 +6,9 @@
 *.service text eol=lf
 *.timer text eol=lf
 
+# PulseAudio config files
+*.pa text eol=lf
+
 # Scripts without extensions (installed to /usr/bin)
 wm8960-soundcard.sh text eol=lf
 wm8960-volume text eol=lf

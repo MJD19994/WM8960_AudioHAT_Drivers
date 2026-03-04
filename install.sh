@@ -276,6 +276,40 @@ else
     echo "Warning: wm8960_asound.state not found in script directory"
 fi
 
+# --- PipeWire / WirePlumber configuration (conditional) ---
+if dpkg -l wireplumber 2>/dev/null | grep -q '^ii'; then
+    echo "PipeWire/WirePlumber detected - installing WM8960 default device rules..."
+    if [ -f "$SCRIPT_DIR/pipewire/wireplumber-wm8960.conf" ]; then
+        cp "$SCRIPT_DIR/pipewire/wireplumber-wm8960.conf" /etc/wm8960-soundcard/
+        mkdir -p /etc/wireplumber/wireplumber.conf.d
+        cp "$SCRIPT_DIR/pipewire/wireplumber-wm8960.conf" /etc/wireplumber/wireplumber.conf.d/40-wm8960-default.conf
+        echo "Installed WirePlumber config: /etc/wireplumber/wireplumber.conf.d/40-wm8960-default.conf"
+    else
+        echo "Warning: pipewire/wireplumber-wm8960.conf not found in script directory (PipeWire config skipped)"
+    fi
+else
+    echo "PipeWire/WirePlumber not detected - skipping PipeWire configuration"
+    echo "  (Install wireplumber package and re-run to enable PipeWire support)"
+fi
+
+# --- PulseAudio configuration (conditional) ---
+# Only install for native PulseAudio, NOT for pipewire-pulse (which uses WirePlumber config above)
+if dpkg -l pulseaudio 2>/dev/null | grep -q '^ii' && ! dpkg -l pipewire-pulse 2>/dev/null | grep -q '^ii'; then
+    echo "PulseAudio detected (native) - installing WM8960 default device config..."
+    if [ -f "$SCRIPT_DIR/pulseaudio/pulseaudio-wm8960.pa" ]; then
+        cp "$SCRIPT_DIR/pulseaudio/pulseaudio-wm8960.pa" /etc/wm8960-soundcard/
+        mkdir -p /etc/pulse/default.pa.d
+        cp "$SCRIPT_DIR/pulseaudio/pulseaudio-wm8960.pa" /etc/pulse/default.pa.d/wm8960-default.pa
+        echo "Installed PulseAudio config: /etc/pulse/default.pa.d/wm8960-default.pa"
+    else
+        echo "Warning: pulseaudio/pulseaudio-wm8960.pa not found in script directory (PulseAudio config skipped)"
+    fi
+elif dpkg -l pipewire-pulse 2>/dev/null | grep -q '^ii'; then
+    echo "pipewire-pulse detected - PulseAudio compatibility provided by PipeWire (no separate PA config needed)"
+else
+    echo "PulseAudio not detected - skipping PulseAudio configuration"
+fi
+
 echo ""
 echo "Step 9/13: Installing systemd service script..."
 # Copy service script to /usr/bin
@@ -384,6 +418,14 @@ if grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
 else
     echo "✗ I2C not enabled in config.txt"
     validation_errors=$((validation_errors + 1))
+fi
+
+# PipeWire/PulseAudio config checks (informational only, not a failure)
+if [ -f "/etc/wireplumber/wireplumber.conf.d/40-wm8960-default.conf" ]; then
+    echo "✓ WirePlumber configuration installed (WM8960 set as default device)"
+fi
+if [ -f "/etc/pulse/default.pa.d/wm8960-default.pa" ]; then
+    echo "✓ PulseAudio configuration installed (WM8960 set as default device)"
 fi
 
 if [ $validation_errors -eq 0 ]; then

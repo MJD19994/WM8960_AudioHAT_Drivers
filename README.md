@@ -425,6 +425,47 @@ This approach provides:
 - **Easier troubleshooting:** Service logs show exactly what happened during initialization
 - **Proper I2S interface:** Using i2s-mmap overlay for memory-mapped I2S access
 
+## PipeWire and PulseAudio Support
+
+The install script automatically detects your audio server and configures the WM8960 as the default audio device. No manual configuration is needed.
+
+| Audio Server | Auto-detected? | Config deployed to |
+|---|---|---|
+| PipeWire/WirePlumber | Yes | `/etc/wireplumber/wireplumber.conf.d/40-wm8960-default.conf` |
+| PulseAudio (native) | Yes | `/etc/pulse/default.pa.d/wm8960-default.pa` |
+| pipewire-pulse | Yes (uses WirePlumber config) | WirePlumber rules handle defaults |
+| ALSA-only (headless) | N/A | No extra config needed, `asound.conf` handles it |
+
+### PipeWire (Raspberry Pi OS Trixie Desktop)
+
+If WirePlumber is installed, the installer deploys a priority rule that makes the WM8960 the default sink (output) and source (input), with higher priority than HDMI audio.
+
+- **Config location:** `/etc/wireplumber/wireplumber.conf.d/40-wm8960-default.conf`
+- **Verify with:** `wpctl status` (WM8960 should show as default sink/source with an asterisk)
+- **Switch to HDMI:** `wpctl set-default <hdmi-node-id>` (get the ID from `wpctl status`)
+
+For full setup instructions, troubleshooting, and manual configuration, see the **[PipeWire Setup Guide](pipewire/README.md)**.
+
+### PulseAudio (Legacy Setups)
+
+If native PulseAudio is installed (not `pipewire-pulse`), the installer deploys a config snippet that sets the WM8960 as the default sink and source.
+
+- **Config location:** `/etc/pulse/default.pa.d/wm8960-default.pa`
+- **Verify with:** `pactl info` (Default Sink/Source should reference `wm8960`)
+- **Switch to HDMI:** `pactl set-default-sink <hdmi-sink-name>` (get name from `pactl list sinks short`)
+
+For full setup instructions, troubleshooting, and manual configuration, see the **[PulseAudio Setup Guide](pulseaudio/README.md)**.
+
+### ALSA-Only (Headless / Pi OS Lite)
+
+No PipeWire or PulseAudio configuration is installed. The existing ALSA `asound.conf` handles default device routing. This is the recommended setup for headless and voice assistant use cases.
+
+To add PipeWire support later, install the packages and re-run the install script:
+```bash
+sudo apt install pipewire pipewire-pulse wireplumber
+sudo bash install.sh
+```
+
 ## Advanced Configuration
 
 ### Adjusting Sample Rates
