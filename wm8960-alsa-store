@@ -47,7 +47,7 @@ if [ "$backup_count" -gt 5 ]; then
     # Get modification time as seconds since epoch
     mtime=$(stat -c '%Y' "$file" 2>/dev/null || stat -f '%m' "$file" 2>/dev/null)
     echo "$mtime|$file"
-  done | sort -t'|' -k1,1n | cut -d'|' -f2- | head -n $(($backup_count - 5)) | while IFS= read -r file; do
+  done | sort -t'|' -k1,1n | cut -d'|' -f2- | head -n $((backup_count - 5)) | while IFS= read -r file; do
     if rm -f "$file" 2>/dev/null; then
       log_message "Deleted old backup: $(basename "$file")"
     else

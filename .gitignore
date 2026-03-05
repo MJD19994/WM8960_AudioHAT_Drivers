@@ -17,6 +17,9 @@ _codeql_detected_source_root
 *.backup
 *~
 
+# Archived overlay (pre-DTS-sync original)
+kernel_module/wm8960-soundcard.dtbo.original
+
 # Editor and tool files
 .vscode/
 .idea/

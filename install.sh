@@ -21,7 +21,7 @@ timeout 120 apt-get update || echo "Warning: apt-get update timed out or failed.
 
 echo ""
 echo "Step 2/13: Installing kernel headers..."
-apt-get install -y linux-headers-$(uname -r)
+apt-get install -y "linux-headers-$(uname -r)"
 
 echo ""
 echo "Step 3/13: Installing required packages..."
@@ -61,9 +61,11 @@ if ! grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
         echo "Added dtparam=i2c_arm=on to [all] section"
     else
         # No [all] section, append to end of file
-        echo "" >> "$CONFIG_FILE"
-        echo "[all]" >> "$CONFIG_FILE"
-        echo "dtparam=i2c_arm=on" >> "$CONFIG_FILE"
+        {
+            echo ""
+            echo "[all]"
+            echo "dtparam=i2c_arm=on"
+        } >> "$CONFIG_FILE"
         echo "Added [all] section with dtparam=i2c_arm=on"
     fi
     
@@ -96,7 +98,7 @@ if grep -qE "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
     echo "=========================================="
     echo ""
     if [ -t 0 ]; then
-        read -p "Press Enter to continue with installation..."
+        read -rp "Press Enter to continue with installation..."
     else
         echo "Non-interactive mode, continuing..."
     fi

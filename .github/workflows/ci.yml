@@ -38,6 +38,20 @@ jobs:
       - name: Compile DTS to DTBO
         run: |
           dtc -@ -I dts -O dtb \
-            -o /tmp/wm8960-soundcard.dtbo \
+            -o /tmp/wm8960-soundcard.compiled.dtbo \
             kernel_module/wm8960-soundcard.dts
           echo "DTS source compiles successfully"
+
+      - name: Verify shipped DTBO matches DTS source
+        run: |
+          # Decompile both to canonical DTS and compare
+          dtc -I dtb -O dts -o /tmp/shipped.dts kernel_module/wm8960-soundcard.dtbo 2>/dev/null
+          dtc -I dtb -O dts -o /tmp/compiled.dts /tmp/wm8960-soundcard.compiled.dtbo 2>/dev/null
+
+          if diff -q /tmp/shipped.dts /tmp/compiled.dts > /dev/null 2>&1; then
+            echo "Shipped .dtbo matches .dts source"
+          else
+            echo "::error::Shipped .dtbo does not match .dts source. Recompile with: dtc -@ -I dts -O dtb -o kernel_module/wm8960-soundcard.dtbo kernel_module/wm8960-soundcard.dts"
+            diff /tmp/shipped.dts /tmp/compiled.dts || true
+            exit 1
+          fi
