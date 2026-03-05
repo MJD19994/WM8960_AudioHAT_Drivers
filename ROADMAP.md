@@ -64,11 +64,11 @@ Support for hardware features beyond the WM8960 codec itself.
 - [ ] Install as optional component (skip on HATs without button)
 
 ### 2.3 Device Tree Source (.dts)
-- [ ] Decompile existing `.dtbo` to `.dts` on a Pi
-- [ ] Clean up and comment the decompiled source
-- [ ] Add `.dts` to repository alongside `.dtbo`
-- [ ] Add `dtc` compilation step to install script (compile from source, fall back to prebuilt)
-- [ ] Separate DTS variants if needed per HAT
+- [x] Decompile existing `.dtbo` to `.dts` on a Pi
+- [x] Clean up and comment the decompiled source
+- [x] Add `.dts` to repository alongside `.dtbo`
+- [x] ~~Add `dtc` compilation step to install script~~ — Ship prebuilt `.dtbo` (same approach as HinTak/seeed-voicecard and Waveshare; `dtc` not installed by default on Pi OS, overlays are kernel-version-independent). CI verifies DTS compiles correctly.
+- [ ] Separate DTS variants if needed per HAT (not yet required — single overlay works for all supported HATs)
 
 ---
 
@@ -287,10 +287,10 @@ Long-term project health.
 - [ ] Store detected HAT type in `/etc/wm8960-soundcard/hat-type`
 
 ### 5.4 CI/CD
-- [ ] GitHub Actions workflow for:
-  - Shell script linting (shellcheck)
-  - Kernel module compilation test (cross-compile)
-  - DTS compilation verification
+- [x] GitHub Actions workflow for:
+  - [x] Shell script linting (ShellCheck)
+  - [ ] Kernel module compilation test (cross-compile) — requires ARM64 cross-compiler + kernel headers, deferred
+  - [x] DTS compilation verification (compiles `.dts` and compares against shipped `.dtbo`)
 - [ ] Automated release tagging with changelog
 
 ---

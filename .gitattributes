@@ -20,5 +20,8 @@ wm8960-alsa-store text eol=lf
 Makefile text eol=lf
 dkms.conf text eol=lf
 
+# CI/CD workflow files
+*.yml text eol=lf
+
 # Binary overlay - do not modify
 *.dtbo binary

@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main, testing]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run ShellCheck on all shell scripts
+        run: |
+          shellcheck -s bash \
+            install.sh \
+            uninstall.sh \
+            test-audio.sh \
+            wm8960-soundcard.sh \
+            wm8960-volume \
+            wm8960-alsa-store
+
+  dts-compile:
+    name: DTS Compilation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install device-tree-compiler
+        run: sudo apt-get install -y device-tree-compiler
+
+      - name: Compile DTS to DTBO
+        run: |
+          dtc -@ -I dts -O dtb \
+            -o /tmp/wm8960-soundcard.dtbo \
+            kernel_module/wm8960-soundcard.dts
+          echo "DTS source compiles successfully"
