@@ -58,7 +58,7 @@ if [ -L /var/lib/alsa/asound.state ]; then
 fi
 
 # Restore previous ALSA config from backup if available
-latest_asound_backup="$(ls -1t /etc/asound.conf.backup.* 2>/dev/null | head -n1 || true)"
+latest_asound_backup="$(find /etc -maxdepth 1 -name 'asound.conf.backup.*' -type f -printf '%T@|%p\n' 2>/dev/null | sort -t'|' -k1,1rn | head -n1 | cut -d'|' -f2-)"
 if [ -n "$latest_asound_backup" ] && [ ! -f /etc/asound.conf ]; then
     cp "$latest_asound_backup" /etc/asound.conf
     echo "Restored /etc/asound.conf from $latest_asound_backup"
@@ -66,7 +66,7 @@ else
     echo "No previous /etc/asound.conf backup to restore"
 fi
 
-latest_state_backup="$(ls -1t /var/lib/alsa/asound.state.backup.* 2>/dev/null | head -n1 || true)"
+latest_state_backup="$(find /var/lib/alsa -maxdepth 1 -name 'asound.state.backup.*' -type f -printf '%T@|%p\n' 2>/dev/null | sort -t'|' -k1,1rn | head -n1 | cut -d'|' -f2-)"
 if [ -n "$latest_state_backup" ] && [ ! -f /var/lib/alsa/asound.state ]; then
     cp "$latest_state_backup" /var/lib/alsa/asound.state
     echo "Restored /var/lib/alsa/asound.state from $latest_state_backup"
