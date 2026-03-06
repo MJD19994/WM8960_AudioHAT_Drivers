@@ -107,7 +107,7 @@ echo "Check 4/10: Kernel modules..."
 codec_loaded=false
 soundcard_loaded=false
 
-if lsmod | grep -q "snd_soc_wm8960[^_]"; then
+if lsmod | grep -q "^snd_soc_wm8960 "; then
     codec_loaded=true
 fi
 if lsmod | grep -q "snd_soc_wm8960_soundcard"; then
@@ -231,15 +231,15 @@ echo "Test Results"
 echo "==============================================="
 total=$((tests_passed + tests_failed + tests_skipped))
 echo -e "  ${GREEN}Passed${NC}: $tests_passed/$total"
-if [ $tests_failed -gt 0 ]; then
+if [ "$tests_failed" -gt 0 ]; then
     echo -e "  ${RED}Failed${NC}: $tests_failed/$total"
 fi
-if [ $tests_skipped -gt 0 ]; then
+if [ "$tests_skipped" -gt 0 ]; then
     echo -e "  ${YELLOW}Skipped${NC}: $tests_skipped/$total"
 fi
 echo ""
 
-if [ $tests_failed -eq 0 ]; then
+if [ "$tests_failed" -eq 0 ]; then
     echo "All tests passed!"
 else
     echo "Some tests failed. For troubleshooting:"
@@ -248,4 +248,4 @@ else
     echo "  - See TROUBLESHOOTING.md for detailed guidance"
 fi
 
-exit $tests_failed
+exit "$tests_failed"

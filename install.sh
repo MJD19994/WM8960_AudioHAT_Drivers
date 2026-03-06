@@ -54,7 +54,7 @@ if ! grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
     # Try to add it to [all] section if it exists
     if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
         # Insert after [all] section header (handles potential whitespace)
-        if ! sed -i '/^[[:space:]]*\[all\]/a dtparam=i2c_arm=on' "$CONFIG_FILE"; then
+        if ! sed -i '0,/^[[:space:]]*\[all\]/a dtparam=i2c_arm=on # wm8960-managed' "$CONFIG_FILE"; then
             echo "ERROR: Failed to add dtparam=i2c_arm=on to config.txt"
             exit 1
         fi
@@ -64,7 +64,7 @@ if ! grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
         {
             echo ""
             echo "[all]"
-            echo "dtparam=i2c_arm=on"
+            echo "dtparam=i2c_arm=on # wm8960-managed"
         } >> "$CONFIG_FILE"
         echo "Added [all] section with dtparam=i2c_arm=on"
     fi
@@ -109,50 +109,57 @@ echo "Step 4/13: Compiling and installing wm8960-soundcard kernel module via DKM
 # Check if DKMS module is already installed
 if dkms status | grep -q "wm8960-soundcard"; then
     echo "DKMS module already installed, removing old version..."
-    dkms remove wm8960-soundcard/1.0 --all
+    if ! dkms remove wm8960-soundcard/1.0 --all; then
+        echo "Warning: DKMS remove failed (continuing with fresh install)"
+    fi
 fi
 
-# Copy kernel module source from local repository if not present
-if [ ! -d "/usr/src/wm8960-soundcard-1.0" ]; then
-    echo "Copying WM8960 kernel module source from local repository..."
-    
-    # Verify local source files exist
-    if [ ! -d "$SCRIPT_DIR/kernel_module" ]; then
-        echo "Error: kernel_module directory not found in $SCRIPT_DIR"
+# Always sync kernel module source to DKMS directory (ensures updates are picked up on re-install)
+DKMS_SRC_DIR="/usr/src/wm8960-soundcard-1.0"
+echo "Syncing WM8960 kernel module source to $DKMS_SRC_DIR..."
+
+if [ ! -d "$SCRIPT_DIR/kernel_module" ]; then
+    echo "Error: kernel_module directory not found in $SCRIPT_DIR"
+    exit 1
+fi
+
+echo "Verifying source files..."
+required_files=("wm8960.c" "wm8960.h" "wm8960-soundcard.c" "Makefile" "dkms.conf")
+for file in "${required_files[@]}"; do
+    if [ ! -f "$SCRIPT_DIR/kernel_module/$file" ]; then
+        echo "Error: Required file $file not found in $SCRIPT_DIR/kernel_module/"
         exit 1
     fi
-    
-    # Verify required source files are present
-    echo "Verifying source files..."
-    required_files=("wm8960.c" "wm8960.h" "wm8960-soundcard.c" "Makefile" "dkms.conf")
-    for file in "${required_files[@]}"; do
-        if [ ! -f "$SCRIPT_DIR/kernel_module/$file" ]; then
-            echo "Error: Required file $file not found in $SCRIPT_DIR/kernel_module/"
-            exit 1
-        fi
-    done
-    echo "All required source files present"
-    
-    # Copy only source files to /usr/src for DKMS (not binary .dtbo files)
-    mkdir -p /usr/src/wm8960-soundcard-1.0
-    for file in "${required_files[@]}"; do
-        cp "$SCRIPT_DIR/kernel_module/$file" /usr/src/wm8960-soundcard-1.0/
-    done
-    
-    echo "Kernel module source files copied successfully"
-else
-    echo "DKMS source already present in /usr/src/wm8960-soundcard-1.0"
-fi
+done
+echo "All required source files present"
+
+mkdir -p "$DKMS_SRC_DIR"
+for file in "${required_files[@]}"; do
+    install -m 0644 "$SCRIPT_DIR/kernel_module/$file" "$DKMS_SRC_DIR/$file"
+done
+
+echo "Kernel module source files synced successfully"
 
 # Add and build DKMS module
 echo "Adding module to DKMS..."
-dkms add -m wm8960-soundcard -v 1.0 2>/dev/null || echo "Module already added to DKMS"
+if dkms status wm8960-soundcard/1.0 2>/dev/null | grep -q "wm8960-soundcard/1.0"; then
+    echo "Module already registered in DKMS"
+else
+    dkms add -m wm8960-soundcard -v 1.0
+fi
 
 echo "Building module with DKMS..."
-dkms build -m wm8960-soundcard -v 1.0
+if ! dkms build -m wm8960-soundcard -v 1.0; then
+    echo "ERROR: DKMS build failed. Check that kernel headers are installed:"
+    echo "  apt-get install linux-headers-$(uname -r)"
+    exit 1
+fi
 
 echo "Installing module with DKMS..."
-dkms install -m wm8960-soundcard -v 1.0
+if ! dkms install -m wm8960-soundcard -v 1.0; then
+    echo "ERROR: DKMS install failed."
+    exit 1
+fi
 
 echo ""
 echo "Step 5/13: Copying device tree overlay..."
@@ -202,7 +209,7 @@ if ! grep -q "^i2c-dev" /etc/modules; then
 fi
 
 echo ""
-echo "Step 7/13: Configuring I2S interface in /boot/firmware/config.txt..."
+echo "Step 7/13: Configuring I2S interface in $CONFIG_FILE..."
 # CONFIG_FILE already set in Step 3a
 
 # Enable I2S-MMAP (required for proper I2S memory-mapped interface)
@@ -224,12 +231,12 @@ if ! grep -qE "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
     if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
         # Insert after dtparam=i2c_arm=on if it exists, otherwise after [all] section header
         if grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
-            if ! sed -i '/^[^#]*dtparam=i2c_arm=on/a dtoverlay=i2s-mmap' "$CONFIG_FILE"; then
+            if ! sed -i '0,/^[^#]*dtparam=i2c_arm=on/a dtoverlay=i2s-mmap # wm8960-managed' "$CONFIG_FILE"; then
                 echo "ERROR: Failed to add dtoverlay=i2s-mmap to config.txt"
                 exit 1
             fi
         else
-            if ! sed -i '/^[[:space:]]*\[all\]/a dtoverlay=i2s-mmap' "$CONFIG_FILE"; then
+            if ! sed -i '0,/^[[:space:]]*\[all\]/a dtoverlay=i2s-mmap # wm8960-managed' "$CONFIG_FILE"; then
                 echo "ERROR: Failed to add dtoverlay=i2s-mmap to config.txt"
                 exit 1
             fi
@@ -237,7 +244,7 @@ if ! grep -qE "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
         echo "Added dtoverlay=i2s-mmap to [all] section"
     else
         # No [all] section exists, should have been created earlier when adding dtparam=i2c_arm=on
-        echo "dtoverlay=i2s-mmap" >> "$CONFIG_FILE"
+        echo "dtoverlay=i2s-mmap # wm8960-managed" >> "$CONFIG_FILE"
         echo "Added dtoverlay=i2s-mmap to end of config.txt"
     fi
     echo "Enabled I2S-MMAP overlay in config.txt"
@@ -268,14 +275,16 @@ if [ -f "$SCRIPT_DIR/asound.conf" ]; then
     cp "$SCRIPT_DIR/asound.conf" /etc/wm8960-soundcard/
     echo "Installed asound.conf"
 else
-    echo "Warning: asound.conf not found in script directory"
+    echo "ERROR: asound.conf not found in script directory - audio will not work without it"
+    exit 1
 fi
 
 if [ -f "$SCRIPT_DIR/wm8960_asound.state" ]; then
     cp "$SCRIPT_DIR/wm8960_asound.state" /etc/wm8960-soundcard/
     echo "Installed wm8960_asound.state"
 else
-    echo "Warning: wm8960_asound.state not found in script directory"
+    echo "ERROR: wm8960_asound.state not found in script directory - audio will not work without it"
+    exit 1
 fi
 
 # --- PipeWire / WirePlumber configuration (conditional) ---
@@ -314,10 +323,19 @@ fi
 
 echo ""
 echo "Step 9/13: Installing systemd service script..."
+
+# Helper: install a script to /usr/bin with CRLF stripping and executable permissions
+# This prevents "exit code 203/EXEC" from systemd if files have Windows line endings
+# (e.g., downloaded as zip from GitHub instead of git clone with .gitattributes)
+install_script() {
+    local src="$1" dest="$2"
+    sed 's/\r$//' "$src" > "$dest"
+    chmod +x "$dest"
+}
+
 # Copy service script to /usr/bin
 if [ -f "$SCRIPT_DIR/wm8960-soundcard.sh" ]; then
-    cp "$SCRIPT_DIR/wm8960-soundcard.sh" /usr/bin/wm8960-soundcard
-    chmod +x /usr/bin/wm8960-soundcard
+    install_script "$SCRIPT_DIR/wm8960-soundcard.sh" /usr/bin/wm8960-soundcard
     echo "Installed wm8960-soundcard service script"
 else
     echo "Error: wm8960-soundcard.sh not found in script directory"
@@ -326,8 +344,7 @@ fi
 
 # Copy volume preset utility to /usr/bin
 if [ -f "$SCRIPT_DIR/wm8960-volume" ]; then
-    cp "$SCRIPT_DIR/wm8960-volume" /usr/bin/wm8960-volume
-    chmod +x /usr/bin/wm8960-volume
+    install_script "$SCRIPT_DIR/wm8960-volume" /usr/bin/wm8960-volume
     echo "Installed wm8960-volume preset utility"
 else
     echo "Warning: wm8960-volume not found in script directory (optional)"
@@ -344,12 +361,17 @@ else
     exit 1
 fi
 
+# Install logrotate configuration for service log
+if [ -f "$SCRIPT_DIR/wm8960-soundcard.logrotate" ]; then
+    cp "$SCRIPT_DIR/wm8960-soundcard.logrotate" /etc/logrotate.d/wm8960-soundcard
+    echo "Installed wm8960-soundcard logrotate configuration"
+fi
+
 echo ""
 echo "Step 11/13: Installing ALSA auto-save components (disabled by default)..."
 # Copy auto-save script to /usr/bin
 if [ -f "$SCRIPT_DIR/wm8960-alsa-store" ]; then
-    cp "$SCRIPT_DIR/wm8960-alsa-store" /usr/bin/wm8960-alsa-store
-    chmod +x /usr/bin/wm8960-alsa-store
+    install_script "$SCRIPT_DIR/wm8960-alsa-store" /usr/bin/wm8960-alsa-store
     echo "Installed wm8960-alsa-store script"
 else
     echo "Warning: wm8960-alsa-store script not found in script directory"
@@ -430,7 +452,7 @@ if [ -f "/etc/pulse/default.pa.d/wm8960-default.pa" ]; then
     echo "✓ PulseAudio configuration installed (WM8960 set as default device)"
 fi
 
-if [ $validation_errors -eq 0 ]; then
+if [ "$validation_errors" -eq 0 ]; then
     echo ""
     echo "All validation checks passed!"
 else
