@@ -318,11 +318,18 @@ Features already implemented and working.
 - [x] Config.txt backup before modifications
 - [x] I2S-MMAP conflict detection
 - [x] Systemd retry logic (3 retries, 120s timeout)
-- [x] Clean uninstall script (10 steps)
+- [x] Clean uninstall script (11 steps)
 - [x] Kernel 6.13+ compatibility wrappers
 - [x] Unique driver naming (`asoc-wm8960-soundcard`) to avoid conflicts
 - [x] Comprehensive README and TROUBLESHOOTING docs
 - [x] All WM8960 hardware DSP controls exposed (3D enhance, ALC, noise gate, HPF, deemphasis)
+- [x] CRLF line-ending stripping during install (Windows editing safety)
+- [x] Config.txt `# wm8960-managed` markers for safe uninstall cleanup
+- [x] Kernel version mismatch detection (warns before install if reboot needed)
+- [x] Boot-time DKMS auto-rebuild (handles kernel updates that skip DKMS hook)
+- [x] Log rotation via logrotate (weekly, 4 rotations, compress)
+- [x] PipeWire WirePlumber config for default sink/source (conditional install)
+- [x] PulseAudio config for default sink/source (conditional install)
 
 ---
 

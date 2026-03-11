@@ -11,9 +11,43 @@ echo "==============================================="
 echo ""
 
 # Check if running as root
-if [ "$EUID" -ne 0 ]; then 
+if [ "$EUID" -ne 0 ]; then
     echo "Error: This script must be run as root (use sudo)"
     exit 1
+fi
+
+# Check for pending kernel update (running kernel vs installed kernel mismatch)
+# If a kernel update was installed via apt but the system hasn't rebooted,
+# DKMS would build for the old kernel, wasting time. The boot-time rebuild
+# in wm8960-soundcard.sh would catch it, but better to warn the user early.
+running_ver="$(uname -r)"
+installed_ver="$(dpkg -l 'linux-image-*' 2>/dev/null | awk '/^ii.*linux-image-[0-9]/{print $2}' | sed 's/linux-image-//' | sort -V | tail -1)"
+if [ -n "$installed_ver" ] && [ "$installed_ver" != "$running_ver" ]; then
+    echo "=============================================="
+    echo "WARNING: Kernel update pending reboot"
+    echo "=============================================="
+    echo ""
+    echo "  Running kernel:   $running_ver"
+    echo "  Installed kernel: $installed_ver"
+    echo ""
+    echo "A kernel update has been installed but not yet loaded."
+    echo "If you continue, DKMS will build for the OLD kernel and"
+    echo "will need to rebuild after reboot (adds ~30s to boot)."
+    echo ""
+    echo "Recommended: reboot first, then re-run this script."
+    echo ""
+    if [ -t 0 ]; then
+        read -rp "Continue anyway? (y/n): " response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            echo "Exiting. Please reboot and re-run: sudo bash install.sh"
+            exit 1
+        fi
+        echo "Continuing with running kernel $running_ver..."
+    else
+        echo "Non-interactive mode: continuing with running kernel $running_ver"
+        echo "(Boot-time DKMS rebuild will handle the new kernel automatically)"
+    fi
+    echo ""
 fi
 
 echo "Step 1/13: Updating package lists..."
@@ -53,8 +87,9 @@ if ! grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
     
     # Try to add it to [all] section if it exists
     if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
-        # Insert after [all] section header (handles potential whitespace)
-        if ! sed -i '0,/^[[:space:]]*\[all\]/a dtparam=i2c_arm=on # wm8960-managed' "$CONFIG_FILE"; then
+        # Find the line number of [all] and insert after it
+        all_line=$(grep -nE "^[[:space:]]*\[all\]" "$CONFIG_FILE" | head -1 | cut -d: -f1)
+        if ! sed -i "${all_line}a dtparam=i2c_arm=on # wm8960-managed" "$CONFIG_FILE"; then
             echo "ERROR: Failed to add dtparam=i2c_arm=on to config.txt"
             exit 1
         fi
@@ -231,15 +266,13 @@ if ! grep -qE "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
     if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
         # Insert after dtparam=i2c_arm=on if it exists, otherwise after [all] section header
         if grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
-            if ! sed -i '0,/^[^#]*dtparam=i2c_arm=on/a dtoverlay=i2s-mmap # wm8960-managed' "$CONFIG_FILE"; then
-                echo "ERROR: Failed to add dtoverlay=i2s-mmap to config.txt"
-                exit 1
-            fi
+            target_line=$(grep -nE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE" | head -1 | cut -d: -f1)
         else
-            if ! sed -i '0,/^[[:space:]]*\[all\]/a dtoverlay=i2s-mmap # wm8960-managed' "$CONFIG_FILE"; then
-                echo "ERROR: Failed to add dtoverlay=i2s-mmap to config.txt"
-                exit 1
-            fi
+            target_line=$(grep -nE "^[[:space:]]*\[all\]" "$CONFIG_FILE" | head -1 | cut -d: -f1)
+        fi
+        if ! sed -i "${target_line}a dtoverlay=i2s-mmap # wm8960-managed" "$CONFIG_FILE"; then
+            echo "ERROR: Failed to add dtoverlay=i2s-mmap to config.txt"
+            exit 1
         fi
         echo "Added dtoverlay=i2s-mmap to [all] section"
     else
