@@ -57,7 +57,7 @@ wpctl status
 
 Expected output (look for the asterisk):
 
-```
+```text
 Audio
  ├─ Sinks:
  │      *  WM8960 Audio HAT (Speaker/Headphone) [vol: 0.74]
@@ -122,7 +122,7 @@ WirePlumber automatically selects the highest-priority device as the default. Th
 
 3. Check the actual node names PipeWire sees:
    ```bash
-   pw-cli list-objects Node | grep -E "node.name|node.description"
+   pw-cli list-objects Node | grep -E "node.name|node.description|alsa.card_name"
    ```
    Look for nodes with `alsa.card_name = "wm8960-soundcard"` in the output.
 
@@ -145,7 +145,7 @@ sudo cat /var/log/wm8960-soundcard.log
 
 Try adjusting the buffer size in PipeWire. Create or edit `/etc/pipewire/pipewire.conf.d/wm8960-latency.conf`:
 
-```
+```ini
 context.properties = {
     default.clock.rate          = 48000
     default.clock.quantum       = 1024

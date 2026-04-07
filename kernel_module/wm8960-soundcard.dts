@@ -13,7 +13,6 @@
  * Overlay parameters:
  *   alsaname  - Override the ALSA card name (default: "wm8960-soundcard")
  *   compatible - Override the codec compatible string
- *   master    - I2S master/slave configuration
  *
  * Compatible with: Keyestudio Respeaker 2-Mic, Waveshare WM8960, Seeed Respeaker 2-Mic,
  *                  and generic WM8960 I2S audio HATs for Raspberry Pi.
@@ -116,7 +115,6 @@
 	__overrides__ {
 		alsaname = <&slave_overlay>, "simple-audio-card,name";
 		compatible = <&wm8960>, "compatible";
-		master = <&frag0>, "=2!3";  /* I2S master/slave toggle */
 	};
 
 };

@@ -196,7 +196,7 @@ sudo cat /var/log/wm8960-soundcard.log
 - Should end with health checks passing and "WM8960 service initialization complete successfully"
 - No error messages or warnings about missing devices
 - Example log entries:
-  ```
+  ```text
   [2026-03-09 20:36:46] Starting WM8960 soundcard initialization...
   [2026-03-09 20:36:48] DKMS module wm8960-soundcard/1.0 is installed for kernel 6.12.62+rpt-rpi-v8
   [2026-03-09 20:36:48] Verifying I2C interface is available...

@@ -60,7 +60,10 @@ The WM8960 should appear at I2C address `0x1a`. If `aplay -l` shows no `wm8960so
 - If using a fresh kernel, the DKMS module may need rebuilding — restart the service to trigger auto-rebuild
 
 ## 3. Wrong Card Order
-**Diagnosis:** Use `cat /proc/asound/cards` to check the order of sound cards.
+**Diagnosis:** Check the order of sound cards:
+```bash
+cat /proc/asound/cards
+```
 
 **Solution:** The installer deploys `/etc/asound.conf` which sets `wm8960soundcard` as the default ALSA device. If another application overrides this, check for conflicting configs in `~/.asoundrc` and remove them.
 
@@ -98,7 +101,7 @@ ls /boot/firmware/overlays/wm8960-soundcard.dtbo
 
 **Solution:**
 - Verify the overlay file exists in `/boot/firmware/overlays/`
-- Check `config.txt` contains `dtoverlay=wm8960-soundcard` (added by the service at boot)
+- Check that the service loaded the overlay dynamically: `sudo dtoverlay -l | grep wm8960-soundcard`
 - If the overlay fails to load, check for conflicts: `dmesg | grep -i error`
 
 ## 7. ALSA Warnings
@@ -200,7 +203,7 @@ sudo reboot
 The first boot after a kernel update may take ~30 seconds longer while the module compiles (on Pi Zero 2W).
 
 ## 11. General Tips
-- Run `sudo ./test-audio.sh` for an automated 8-point diagnostic check
+- Run `sudo bash test-audio.sh` for an automated 10-check diagnostic run
 - Use `sudo ./test-audio.sh --quick` for non-interactive CI/headless testing
 - Check the service log for timestamped diagnostics: `cat /var/log/wm8960-soundcard.log`
 - Ensure your system is up to date: `sudo apt update && sudo apt upgrade`

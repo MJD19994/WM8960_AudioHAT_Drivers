@@ -22,7 +22,7 @@ This document provides a comprehensive overview of all WM8960 ALSA controls avai
 
 ### Microphone & Line Boost
 - **Left/Right Input Boost Mixer LINPUT[1-3] / RINPUT[1-3]**: Analog boost for input channels. Use to increase mic sensitivity.
-- **Left/Right Input Mixer Boost**: Overall input gain after analog mixing.
+- **Left/Right Input Mixer Boost Switch**: Enables boost from input PGA to ADC. Use `amixer sset 'Left Input Mixer Boost Switch' on`.
 
 ---
 ## Advanced Controls
@@ -51,8 +51,8 @@ This document provides a comprehensive overview of all WM8960 ALSA controls avai
 1. **Boost Mic Volume via Control:**
    ```bash
    amixer sset 'Capture' 80%   # Boost overall capture gain
-   amixer sset 'Left Input Mixer Boost' on
-   amixer sset 'Right Input Mixer Boost' on
+   amixer sset 'Left Input Mixer Boost Switch' on
+   amixer sset 'Right Input Mixer Boost Switch' on
    ```
    Or, use Wyoming flag:
    ```bash
@@ -91,7 +91,7 @@ This document provides a comprehensive overview of all WM8960 ALSA controls avai
 ## References
 - Hardware: WM8960 Codec (Seeed, Keyestudio, Waveshare, SparkFun)
 - ALSA: [Official docs](https://alsa-project.org/wiki/Main_Page), [amixer doc](https://linux.die.net/man/1/amixer)
-- Wyoming Satellite: [Wyoming docs](https://github.com/OpenVoiceOS/wyoming-satellite)
+- Wyoming Satellite: [Wyoming docs](https://github.com/rhasspy/wyoming-satellite) (archived Jan 2026; successor: [Linux Voice Assistant](https://github.com/OHF-Voice/linux-voice-assistant))
 - Rhasspy: [Rhasspy docs](https://rhasspy.readthedocs.io/en/latest/)
 
 ---

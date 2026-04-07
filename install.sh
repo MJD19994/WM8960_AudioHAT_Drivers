@@ -59,7 +59,7 @@ apt-get install -y "linux-headers-$(uname -r)"
 
 echo ""
 echo "Step 3/13: Installing required packages..."
-apt-get install -y dkms git i2c-tools libasound2-plugins
+apt-get install -y dkms git i2c-tools alsa-utils libasound2-plugins
 
 echo ""
 echo "Step 3a/13: Configuring I2C interface in config.txt..."
@@ -81,10 +81,30 @@ cp "$CONFIG_FILE" "$BACKUP_FILE"
 echo "Backed up config.txt to $BACKUP_FILE"
 echo "Note: Backup files accumulate with each run. Old backups can be safely removed to save space."
 
-# Check if dtparam=i2c_arm=on is already present (exclude commented lines)
-if ! grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
-    echo "Adding dtparam=i2c_arm=on to config.txt..."
-    
+# Helper: check if a setting exists under [all] section specifically
+# (not under [pi4], [cm4], etc. which would only apply to specific models)
+in_all_section() {
+    local pattern="$1"
+    if ! grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
+        return 1
+    fi
+    local all_line
+    all_line=$(grep -nE "^[[:space:]]*\[all\]" "$CONFIG_FILE" | head -1 | cut -d: -f1)
+    # Find next section header after [all], or use end of file
+    local next_section_line
+    next_section_line=$(tail -n +"$((all_line + 1))" "$CONFIG_FILE" | grep -nE "^\[" | head -1 | cut -d: -f1)
+    if [ -n "$next_section_line" ]; then
+        next_section_line=$((all_line + next_section_line))
+        sed -n "$((all_line + 1)),$((next_section_line - 1))p" "$CONFIG_FILE" | grep -qE "$pattern"
+    else
+        tail -n +"$((all_line + 1))" "$CONFIG_FILE" | grep -qE "$pattern"
+    fi
+}
+
+# Check if dtparam=i2c_arm=on is already present in [all] section
+if ! in_all_section "^[^#]*dtparam=i2c_arm=on"; then
+    echo "Adding dtparam=i2c_arm=on to config.txt [all] section..."
+
     # Try to add it to [all] section if it exists
     if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
         # Find the line number of [all] and insert after it
@@ -103,14 +123,14 @@ if ! grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
         } >> "$CONFIG_FILE"
         echo "Added [all] section with dtparam=i2c_arm=on"
     fi
-    
+
     # Verify dtparam was actually added to config.txt
-    if ! grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
+    if ! in_all_section "^[^#]*dtparam=i2c_arm=on"; then
         echo "ERROR: Failed to verify dtparam=i2c_arm=on in config.txt"
         exit 1
     fi
 else
-    echo "dtparam=i2c_arm=on already present in config.txt"
+    echo "dtparam=i2c_arm=on already present in config.txt [all] section"
 fi
 
 # Check for dtoverlay=i2s-mmap conflict and warn user
@@ -260,12 +280,12 @@ if grep -qE "^[[:space:]]*dtparam=i2s=on" "$CONFIG_FILE"; then
     echo "Replaced dtparam=i2s=on with dtoverlay=i2s-mmap"
 fi
 
-# Add dtoverlay=i2s-mmap if not present
-if ! grep -qE "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
+# Add dtoverlay=i2s-mmap if not present in [all] section
+if ! in_all_section "^[^#]*dtoverlay=i2s-mmap"; then
     # Try to add it to [all] section if it exists
     if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
-        # Insert after dtparam=i2c_arm=on if it exists, otherwise after [all] section header
-        if grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
+        # Insert after dtparam=i2c_arm=on in [all] if it exists, otherwise after [all] header
+        if in_all_section "^[^#]*dtparam=i2c_arm=on"; then
             target_line=$(grep -nE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE" | head -1 | cut -d: -f1)
         else
             target_line=$(grep -nE "^[[:space:]]*\[all\]" "$CONFIG_FILE" | head -1 | cut -d: -f1)

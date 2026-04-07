@@ -76,8 +76,11 @@ ensure_dkms_module() {
   else
     # Attempt build
     log_message "Building DKMS module for kernel $running_kernel..."
-    dkms build "$dkms_module/$dkms_version" -k "$running_kernel" 2>&1 | while IFS= read -r line; do log_message "  dkms build: $line"; done
-    if [ "${PIPESTATUS[0]}" -eq 0 ]; then
+    local build_output build_status
+    build_output=$(dkms build "$dkms_module/$dkms_version" -k "$running_kernel" 2>&1)
+    build_status=$?
+    echo "$build_output" | while IFS= read -r line; do log_message "  dkms build: $line"; done
+    if [ "$build_status" -eq 0 ]; then
       log_message "DKMS build succeeded"
     else
       log_message "ERROR: DKMS build failed for kernel $running_kernel"
@@ -87,8 +90,11 @@ ensure_dkms_module() {
   fi
 
   log_message "Installing DKMS module for kernel $running_kernel..."
-  dkms install "$dkms_module/$dkms_version" -k "$running_kernel" 2>&1 | while IFS= read -r line; do log_message "  dkms install: $line"; done
-  if [ "${PIPESTATUS[0]}" -eq 0 ]; then
+  local install_output install_status
+  install_output=$(dkms install "$dkms_module/$dkms_version" -k "$running_kernel" 2>&1)
+  install_status=$?
+  echo "$install_output" | while IFS= read -r line; do log_message "  dkms install: $line"; done
+  if [ "$install_status" -eq 0 ]; then
     log_message "DKMS auto-rebuild completed successfully for kernel $running_kernel"
   else
     log_message "ERROR: DKMS install failed for kernel $running_kernel"

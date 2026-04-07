@@ -123,7 +123,7 @@ This is the biggest differentiation opportunity for this project.
 
 The typical preprocessing chain needed for wake word + STT:
 
-```
+```text
 Physical Mic (WM8960 ADC)
     |
 [ALSA/PipeWire Capture] -- 16kHz, 16-bit, mono
@@ -327,7 +327,7 @@ Features already implemented and working.
 - [x] Config.txt `# wm8960-managed` markers for safe uninstall cleanup
 - [x] Kernel version mismatch detection (warns before install if reboot needed)
 - [x] Boot-time DKMS auto-rebuild (handles kernel updates that skip DKMS hook)
-- [x] Log rotation via logrotate (weekly, 4 rotations, compress)
+- [x] Log rotation via logrotate (weekly, 6 rotations, compress)
 - [x] PipeWire WirePlumber config for default sink/source (conditional install)
 - [x] PulseAudio config for default sink/source (conditional install)
 

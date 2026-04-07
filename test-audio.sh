@@ -24,6 +24,11 @@ for arg in "$@"; do
     esac
 done
 
+if [ "$EUID" -ne 0 ]; then
+    echo "Error: This script must be run as root (use sudo)"
+    exit 1
+fi
+
 # Counters
 tests_passed=0
 tests_failed=0
@@ -43,8 +48,9 @@ else
 fi
 
 # Temp file for mic test, cleaned up on exit
-TEMP_RECORDING="/tmp/wm8960-test-$$.wav"
-trap 'rm -f "$TEMP_RECORDING"' EXIT
+TEMP_DIR="$(mktemp -d)"
+TEMP_RECORDING="$TEMP_DIR/wm8960-test.wav"
+trap 'rm -rf "$TEMP_DIR"' EXIT
 
 pass() {
     echo -e "  ${GREEN}PASS${NC}: $1"
