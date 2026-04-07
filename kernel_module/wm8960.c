@@ -610,7 +610,6 @@ static int wm8960_configure_clocking(struct snd_soc_component *component)
 	int sysclk, bclk, lrclk, freq_out, freq_in;
 	u16 iface1 = snd_soc_component_read(component, WM8960_IFACE1);
 	int i, j, k;
-		 
 
 	if (!(iface1 & (1<<6))) {
 		dev_dbg(component->dev,

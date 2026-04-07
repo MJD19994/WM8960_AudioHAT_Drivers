@@ -12,8 +12,8 @@ This document provides a comprehensive overview of all WM8960 ALSA controls avai
 ## Essential Audio Controls
 
 ### Playback
-- **Playback Volume**: Main output volume for WM8960 DAC; adjust with `amixer sset 'Playback' N%` or Wyoming flag `--speaker-volume-multiplier`.
-- **Headphone/Speaker Volume**: `Headphone`, `Speaker`. Used for fine-tuning output hardware levels.
+- **Playback Volume**: Main output volume for WM8960 DAC; adjust with `amixer sset 'Playback Volume' N%` or Wyoming flag `--speaker-volume-multiplier`.
+- **Headphone/Speaker Volume**: `Headphone Playback Volume`, `Speaker Playback Volume`. Used for fine-tuning output hardware levels.
 - **PCM Playback -6dB**: Attenuates PCM output from ALSA for headroom. Typically left at default (off) unless distortion occurs.
 
 ### Capture / Microphone
@@ -50,7 +50,7 @@ This document provides a comprehensive overview of all WM8960 ALSA controls avai
 
 1. **Boost Mic Volume via Control:**
    ```bash
-   amixer sset 'Capture' 80%   # Boost overall capture gain
+   amixer sset 'Capture Volume' 80%   # Boost overall capture gain
    amixer sset 'Left Input Mixer Boost Switch' on
    amixer sset 'Right Input Mixer Boost Switch' on
    ```
@@ -60,7 +60,7 @@ This document provides a comprehensive overview of all WM8960 ALSA controls avai
    ```
 2. **Increase Speaker Output:**
    ```bash
-   amixer sset 'Speaker' 100%
+   amixer sset 'Speaker Playback Volume' 100%
    wyoming-satellite --speaker-volume-multiplier 1.5
    ```
 3. **Enable Live Monitoring / Loopback:**

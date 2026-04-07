@@ -60,7 +60,7 @@ pactl info
 
 Expected output (look for the Default Sink/Source lines):
 
-```
+```text
 Server String: /run/user/1000/pulse/native
 Default Sink: alsa_output.platform-wm8960-soundcard.analog-stereo
 Default Source: alsa_input.platform-wm8960-soundcard.analog-stereo
@@ -100,7 +100,7 @@ The configuration file (`pulseaudio-wm8960.pa`) is placed in PulseAudio's drop-i
 
 The two commands in the config:
 
-```
+```text
 set-default-sink alsa_output.platform-wm8960-soundcard.analog-stereo
 set-default-source alsa_input.platform-wm8960-soundcard.analog-stereo
 ```
