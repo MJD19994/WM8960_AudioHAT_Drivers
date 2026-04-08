@@ -24,6 +24,11 @@ for arg in "$@"; do
     esac
 done
 
+if [ "$EUID" -ne 0 ]; then
+    echo "Error: This script must be run as root (use sudo)"
+    exit 1
+fi
+
 # Counters
 tests_passed=0
 tests_failed=0
@@ -43,8 +48,9 @@ else
 fi
 
 # Temp file for mic test, cleaned up on exit
-TEMP_RECORDING="/tmp/wm8960-test-$$.wav"
-trap 'rm -f "$TEMP_RECORDING"' EXIT
+TEMP_DIR="$(mktemp -d)"
+TEMP_RECORDING="$TEMP_DIR/wm8960-test.wav"
+trap 'rm -rf "$TEMP_DIR"' EXIT
 
 pass() {
     echo -e "  ${GREEN}PASS${NC}: $1"
@@ -107,7 +113,7 @@ echo "Check 4/10: Kernel modules..."
 codec_loaded=false
 soundcard_loaded=false
 
-if lsmod | grep -q "snd_soc_wm8960[^_]"; then
+if lsmod | grep -q "^snd_soc_wm8960 "; then
     codec_loaded=true
 fi
 if lsmod | grep -q "snd_soc_wm8960_soundcard"; then
@@ -231,15 +237,15 @@ echo "Test Results"
 echo "==============================================="
 total=$((tests_passed + tests_failed + tests_skipped))
 echo -e "  ${GREEN}Passed${NC}: $tests_passed/$total"
-if [ $tests_failed -gt 0 ]; then
+if [ "$tests_failed" -gt 0 ]; then
     echo -e "  ${RED}Failed${NC}: $tests_failed/$total"
 fi
-if [ $tests_skipped -gt 0 ]; then
+if [ "$tests_skipped" -gt 0 ]; then
     echo -e "  ${YELLOW}Skipped${NC}: $tests_skipped/$total"
 fi
 echo ""
 
-if [ $tests_failed -eq 0 ]; then
+if [ "$tests_failed" -eq 0 ]; then
     echo "All tests passed!"
 else
     echo "Some tests failed. For troubleshooting:"
@@ -248,4 +254,4 @@ else
     echo "  - See TROUBLESHOOTING.md for detailed guidance"
 fi
 
-exit $tests_failed
+exit "$tests_failed"

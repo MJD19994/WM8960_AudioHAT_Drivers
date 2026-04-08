@@ -1,0 +1,15 @@
+# WM8960 Audio HAT - PulseAudio configuration
+# Sets WM8960 as default sink/source
+# Installed by WM8960 Audio HAT Drivers install.sh
+#
+# Deployed to: /etc/pulse/default.pa.d/wm8960-default.pa
+#
+# Note: Device names may vary. Verify with:
+#   pactl list sinks short
+#   pactl list sources short
+
+# Set WM8960 as default output (speaker/headphone)
+set-default-sink alsa_output.platform-wm8960-soundcard.analog-stereo
+
+# Set WM8960 as default input (microphone)
+set-default-source alsa_input.platform-wm8960-soundcard.analog-stereo

@@ -29,35 +29,91 @@ If you're upgrading from an older version and still see this error:
    You should see references to `asoc-wm8960-soundcard`, not `asoc-simple-card`.
 
 ## 1. Service Failures
-**Diagnosis:** Check system logs for errors related to audio services.  
-**Solution:** Restart the audio service with the following command:
+**Diagnosis:** Check the WM8960 service status and logs:
 ```bash
-sudo systemctl restart audio.service
+sudo systemctl status wm8960-soundcard.service
+sudo cat /var/log/wm8960-soundcard.log
 ```
 
+**Solution:** Restart the service:
+```bash
+sudo systemctl restart wm8960-soundcard.service
+```
+
+If the service fails repeatedly, check for:
+- Missing kernel modules: `lsmod | grep snd_soc_wm8960`
+- I2C detection failure: `sudo i2cdetect -y 1` (should show device at address `0x1a`)
+- DKMS build issues: `dkms status`
+
 ## 2. Codec Detection Issues
-**Diagnosis:** Verify if the codec is detected by running `aplay -l`.  
-**Solution:** If not detected, check connections and re-flash the firmware if necessary.
+**Diagnosis:** Verify if the codec is detected:
+```bash
+aplay -l
+sudo i2cdetect -y 1
+```
+The WM8960 should appear at I2C address `0x1a`. If `aplay -l` shows no `wm8960soundcard`, the codec is not being detected.
+
+**Solution:**
+- Ensure the HAT is firmly seated on the GPIO header
+- Check that I2C is enabled: `grep dtparam=i2c_arm /boot/firmware/config.txt`
+- Verify the overlay is loaded: `dmesg | grep wm8960`
+- If using a fresh kernel, the DKMS module may need rebuilding — restart the service to trigger auto-rebuild
 
 ## 3. Wrong Card Order
-**Diagnosis:** Use `cat /proc/asound/cards` to check the order of sound cards.  
-**Solution:** Configure `/etc/asound.conf` or `~/.asoundrc` to set the default card.
+**Diagnosis:** Check the order of sound cards:
+```bash
+cat /proc/asound/cards
+```
+
+**Solution:** The installer deploys `/etc/asound.conf` which sets `wm8960soundcard` as the default ALSA device. If another application overrides this, check for conflicting configs in `~/.asoundrc` and remove them.
 
 ## 4. No Sound
-**Diagnosis:** Ensure volume is up and not muted.  
-**Solution:** Use `alsamixer` to adjust the volume levels and unmute channels.
+**Diagnosis:** Ensure volume is up and not muted:
+```bash
+amixer -c wm8960soundcard sget 'Speaker'
+amixer -c wm8960soundcard sget 'Headphone'
+```
+
+**Solution:**
+- Use `alsamixer -c wm8960soundcard` to adjust volume levels and unmute channels
+- Use the volume preset utility: `wm8960-volume speakers` or `wm8960-volume headphones`
+- Verify the DAC is enabled: check that `Left DAC` and `Right DAC` are unmuted in alsamixer
+- Reset to known-good defaults: `wm8960-volume reset`
 
 ## 5. Recording Problems
-**Diagnosis:** Check the recording device settings with `arecord -l`.  
-**Solution:** Ensure the correct recording source is selected in the application settings.
+**Diagnosis:** Check the recording device:
+```bash
+arecord -l
+arecord -D default -c 2 -r 16000 -f S16_LE -d 5 /tmp/test.wav
+```
+
+**Solution:**
+- Ensure the capture path is enabled in alsamixer (Left/Right Input Mixer switches)
+- Use the recording preset: `wm8960-volume recording`
+- Check that the correct input source is selected (LINPUT1/RINPUT1 for onboard mics)
 
 ## 6. Overlay Errors
-**Diagnosis:** Overlay errors can often be attributed to incorrect configuration.  
-**Solution:** Check the overlay settings in the device tree and adjust as needed.
+**Diagnosis:** Check if the overlay is loaded correctly:
+```bash
+dmesg | grep wm8960
+ls /boot/firmware/overlays/wm8960-soundcard.dtbo
+```
+
+**Solution:**
+- Verify the overlay file exists in `/boot/firmware/overlays/`
+- Check that the service loaded the overlay dynamically: `sudo dtoverlay -l | grep wm8960-soundcard`
+- If the overlay fails to load, check for conflicts: `dmesg | grep -i error`
 
 ## 7. ALSA Warnings
-**Diagnosis:** Look for warnings in the output of `dmesg` or `journalctl -xe`.  
-**Solution:** Update ALSA packages or reconfigure audio settings.
+**Diagnosis:** Look for warnings in dmesg or the service log:
+```bash
+dmesg | grep -i alsa
+sudo cat /var/log/wm8960-soundcard.log
+```
+
+**Solution:** Most ALSA warnings are non-fatal. Common warnings include:
+- "Unknown field" in state restore — usually means the state file references a control not present on the current driver version. Run `wm8960-volume reset` to regenerate.
+- Underrun warnings during playback — increase buffer sizes or lower sample rate.
 
 ## 7a. ALSA Mixer Settings Not Applied
 **Diagnosis:** Mixer settings (volume, mute, etc.) don't persist or apply after reboot.
@@ -71,7 +127,7 @@ sudo systemctl restart audio.service
 **Solution:**
 1. **Check ALSA state file format**:
    ```bash
-   cat /var/lib/alsa/asound.state | head -20
+   head -20 /var/lib/alsa/asound.state
    ```
    Should start with `state.wm8960soundcard {` (not XML format!)
 
@@ -100,18 +156,57 @@ sudo systemctl restart audio.service
    ```
 
 ## 8. Module Loading Issues
-**Diagnosis:** Check if the WM8960 module is loaded with `lsmod | grep wm8960`.  
-**Solution:** Load the module with:
+**Diagnosis:** Check if the WM8960 modules are loaded:
 ```bash
-sudo modprobe wm8960
+lsmod | grep snd_soc_wm8960
+```
+You should see both `snd_soc_wm8960` (codec) and `snd_soc_wm8960_soundcard` (machine driver).
+
+**Solution:**
+```bash
+sudo modprobe snd_soc_wm8960
+sudo modprobe snd_soc_wm8960_soundcard
+```
+
+If modules fail to load, check DKMS:
+```bash
+dkms status
+```
+If the module is not built for the running kernel, restart the service to trigger auto-rebuild:
+```bash
+sudo systemctl restart wm8960-soundcard.service
 ```
 
 ## 9. Audio Quality Issues
 **Diagnosis:** Identify if there are stuttering or distortion artifacts.
-**Solution:** Lower the sample rate or increase buffer sizes in the audio playback settings.
 
-## 10. General Tips
-- Ensure your system is up to date with the latest kernel and libraries.  
-- Refer to the official documentation for any specific driver configurations.  
+**Solution:**
+- Lower the sample rate: try 16000 or 44100 instead of 48000
+- For distortion at high volumes, reduce speaker volume and use Class D boost instead
+- Enable zero-cross detection to prevent pops: `wm8960-volume headphones`
+- For recording quality, enable the hardware high-pass filter to remove DC offset and low-frequency noise
 
-For further assistance, consult the user forums or the community support channels.
+## 10. DKMS Module Not Built After Kernel Update
+**Diagnosis:** After a kernel update, audio stops working.
+```bash
+dkms status
+uname -r
+```
+If DKMS shows the module is not built for the running kernel version:
+
+**Root Cause:** Raspberry Pi OS installs the kernel image before headers. The DKMS hook fires during image install, finds no headers, and silently skips the build. When headers install seconds later, no hook retriggers DKMS.
+
+**Solution:** The service automatically detects and rebuilds the DKMS module at boot. Simply reboot:
+```bash
+sudo reboot
+```
+The first boot after a kernel update may take ~30 seconds longer while the module compiles (on Pi Zero 2W).
+
+## 11. General Tips
+- Run `sudo bash test-audio.sh` for an automated 10-check diagnostic run
+- Use `sudo ./test-audio.sh --quick` for non-interactive CI/headless testing
+- Check the service log for timestamped diagnostics: `sudo cat /var/log/wm8960-soundcard.log`
+- Ensure your system is up to date: `sudo apt update && sudo apt upgrade`
+- After any kernel update, reboot to allow the DKMS auto-rebuild
+
+For further assistance, open an issue on the [GitHub repository](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/issues).

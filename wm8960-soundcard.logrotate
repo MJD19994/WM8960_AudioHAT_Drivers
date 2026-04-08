@@ -1,0 +1,8 @@
+/var/log/wm8960-soundcard.log {
+    weekly
+    rotate 6
+    compress
+    missingok
+    notifempty
+    create 0644 root root
+}

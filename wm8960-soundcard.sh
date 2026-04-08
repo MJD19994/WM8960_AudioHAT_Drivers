@@ -11,8 +11,8 @@ if [ "${DEBUG}" = "1" ]; then
   set -x
 fi
 
-# Redirect output to log file
-exec 1>/var/log/wm8960-soundcard.log 2>&1
+# Redirect output to log file (append to preserve previous boot logs)
+exec 1>>/var/log/wm8960-soundcard.log 2>&1
 
 # Function to log messages with timestamp
 log_message() {
@@ -70,20 +70,31 @@ ensure_dkms_module() {
     return 1
   fi
 
-  # Attempt build and install
-  log_message "Building DKMS module for kernel $running_kernel..."
-  dkms build "$dkms_module/$dkms_version" -k "$running_kernel" 2>&1 | while IFS= read -r line; do log_message "  dkms build: $line"; done
-  if [ "${PIPESTATUS[0]}" -eq 0 ]; then
-    log_message "DKMS build succeeded"
+  # Check if module is already built (but not installed) - skip build, go straight to install
+  if dkms status "$dkms_module/$dkms_version" -k "$running_kernel" 2>/dev/null | grep -q "built"; then
+    log_message "DKMS module already built for kernel $running_kernel, skipping to install..."
   else
-    log_message "ERROR: DKMS build failed for kernel $running_kernel"
-    log_message "Check build log: /var/lib/dkms/$dkms_module/$dkms_version/build/make.log"
-    return 1
+    # Attempt build
+    log_message "Building DKMS module for kernel $running_kernel..."
+    local build_output build_status
+    build_output=$(dkms build "$dkms_module/$dkms_version" -k "$running_kernel" 2>&1)
+    build_status=$?
+    echo "$build_output" | while IFS= read -r line; do log_message "  dkms build: $line"; done
+    if [ "$build_status" -eq 0 ]; then
+      log_message "DKMS build succeeded"
+    else
+      log_message "ERROR: DKMS build failed for kernel $running_kernel"
+      log_message "Check build log: /var/lib/dkms/$dkms_module/$dkms_version/build/make.log"
+      return 1
+    fi
   fi
 
   log_message "Installing DKMS module for kernel $running_kernel..."
-  dkms install "$dkms_module/$dkms_version" -k "$running_kernel" 2>&1 | while IFS= read -r line; do log_message "  dkms install: $line"; done
-  if [ "${PIPESTATUS[0]}" -eq 0 ]; then
+  local install_output install_status
+  install_output=$(dkms install "$dkms_module/$dkms_version" -k "$running_kernel" 2>&1)
+  install_status=$?
+  echo "$install_output" | while IFS= read -r line; do log_message "  dkms install: $line"; done
+  if [ "$install_status" -eq 0 ]; then
     log_message "DKMS auto-rebuild completed successfully for kernel $running_kernel"
   else
     log_message "ERROR: DKMS install failed for kernel $running_kernel"
@@ -146,13 +157,13 @@ if [ "x${is_1a}" != "x" ]; then
   log_message "Managing ALSA configuration files..."
   if [ -f /etc/asound.conf ] && [ ! -L /etc/asound.conf ]; then
     log_message "Backing up existing /etc/asound.conf"
-    if ! cp /etc/asound.conf /etc/asound.conf.backup.$(date +%Y%m%d_%H%M%S); then
+    if ! cp /etc/asound.conf "/etc/asound.conf.backup.$(date +%Y%m%d_%H%M%S)"; then
       log_message "WARNING: Failed to create backup of /etc/asound.conf (continuing anyway)"
     fi
   fi
   if [ -f /var/lib/alsa/asound.state ] && [ ! -L /var/lib/alsa/asound.state ]; then
     log_message "Backing up existing /var/lib/alsa/asound.state"
-    if ! cp /var/lib/alsa/asound.state /var/lib/alsa/asound.state.backup.$(date +%Y%m%d_%H%M%S); then
+    if ! cp /var/lib/alsa/asound.state "/var/lib/alsa/asound.state.backup.$(date +%Y%m%d_%H%M%S)"; then
       log_message "WARNING: Failed to create backup of /var/lib/alsa/asound.state (continuing anyway)"
     fi
   fi
@@ -198,29 +209,28 @@ if [ "x${is_1a}" != "x" ]; then
     log_message "No saved ALSA state (first boot?)"
   fi
   
-  # Clean up old backup files at boot (keep last 10 for manual save users)
+  # Clean up old backup files at boot (keep last 10 of each type)
   log_message "Cleaning up old ALSA backup files..."
-  BACKUP_DIR="/var/lib/alsa"
-  BACKUP_PATTERN="asound.state.backup.*"
-  
-  # Count existing backups (default to 0 if find fails)
-  backup_count=$(find "$BACKUP_DIR" -name "$BACKUP_PATTERN" 2>/dev/null | wc -l)
-  backup_count=${backup_count:-0}
-  
-  if [ "$backup_count" -gt 10 ]; then
-    # Delete oldest backups, keeping last 10
-    # Use stat and sort for POSIX compliance while handling filenames with spaces
-    find "$BACKUP_DIR" -name "$BACKUP_PATTERN" -type f 2>/dev/null | while IFS= read -r file; do
-      # Get modification time as seconds since epoch
-      mtime=$(stat -c '%Y' "$file" 2>/dev/null || stat -f '%m' "$file" 2>/dev/null)
-      echo "$mtime|$file"
-    done | sort -t'|' -k1,1n | cut -d'|' -f2- | head -n $(($backup_count - 10)) | while IFS= read -r file; do
-      rm -f "$file" 2>/dev/null && log_message "Deleted old backup: $(basename "$file")"
-    done
-    log_message "Boot-time cleanup complete - kept last 10 backups"
-  else
-    log_message "No boot-time cleanup needed (backup count: $backup_count, limit: 10)"
-  fi
+
+  cleanup_old_backups() {
+    local dir="$1" pattern="$2" keep="$3"
+    local count
+    count=$(find "$dir" -name "$pattern" 2>/dev/null | wc -l)
+    count=${count:-0}
+    if [ "$count" -gt "$keep" ]; then
+      find "$dir" -name "$pattern" -type f 2>/dev/null | while IFS= read -r file; do
+        mtime=$(stat -c '%Y' "$file" 2>/dev/null || stat -f '%m' "$file" 2>/dev/null)
+        echo "$mtime|$file"
+      done | sort -t'|' -k1,1n | cut -d'|' -f2- | head -n $((count - keep)) | while IFS= read -r file; do
+        rm -f "$file" 2>/dev/null && log_message "Deleted old backup: $(basename "$file")"
+      done
+      log_message "Cleanup: kept last $keep of $pattern in $dir"
+    fi
+  }
+
+  cleanup_old_backups "/var/lib/alsa" "asound.state.backup.*" 10
+  cleanup_old_backups "/etc" "asound.conf.backup.*" 10
+  log_message "Boot-time backup cleanup complete"
   
   # Health check: Verify audio system is working
   log_message "Performing health checks..."
@@ -233,7 +243,7 @@ if [ "x${is_1a}" != "x" ]; then
   fi
   
   # Check 2: Verify ALSA can see the sound card
-  if cat /proc/asound/cards 2>/dev/null | grep -q "wm8960"; then
+  if grep -q "wm8960" /proc/asound/cards 2>/dev/null; then
     log_message "✓ Health check passed: WM8960 sound card visible to ALSA"
   else
     log_message "⚠ WARNING: WM8960 sound card not visible in /proc/asound/cards"

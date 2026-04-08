@@ -19,7 +19,7 @@ Before installing the WM8960 Audio HAT drivers, ensure you have:
   - WM8960 Audio HAT hardware properly seated on GPIO pins
   
 - **Software:**
-  - Raspberry Pi OS (Raspbian) installed (32-bit or 64-bit)
+  - Raspberry Pi OS installed (32-bit or 64-bit, Trixie or newer recommended)
   - Internet connection for downloading dependencies
   - Root/sudo access
   
@@ -63,17 +63,19 @@ sudo ./install.sh
 ```
 
 The installation script will:
-1. Update package lists with `apt update`
-2. Install Linux kernel headers for the current kernel (`linux-headers-$(uname -r)`)
-3. Install DKMS (Dynamic Kernel Module Support)
-4. Install required packages: git, i2c-tools, and ALSA plugins
-5. Clone and compile the wm8960-soundcard kernel module via DKMS
-6. Copy the device tree overlay to `/boot/overlays/`
+1. Check for pending kernel updates (warns if reboot needed)
+2. Update package lists with `apt update`
+3. Install Linux kernel headers, DKMS, git, i2c-tools, and ALSA plugins
+4. Configure I2C in `/boot/firmware/config.txt` with `# wm8960-managed` tags
+5. Compile and install the wm8960-soundcard kernel module via DKMS
+6. Copy the device tree overlay to `/boot/firmware/overlays/`
 7. Configure kernel modules in `/etc/modules` (add i2c-dev)
-8. Enable I2C and I2S in `/boot/firmware/config.txt`
+8. Enable I2S-MMAP overlay in config.txt
 9. Install ALSA configuration files to `/etc/wm8960-soundcard/`
-10. Install the systemd service script to `/usr/bin/wm8960-soundcard`
-11. Install and enable the systemd service
+10. Conditionally install PipeWire/PulseAudio default device configs (if detected)
+11. Install the systemd service script, volume utility, and logrotate config
+12. Install and enable the systemd service
+13. Validate the installation (DKMS, overlay, service, ALSA, config.txt)
 
 **Note:** The script does NOT add `dtoverlay=wm8960-soundcard` to config.txt - the overlay is loaded dynamically by the service for better reliability.
 
@@ -187,23 +189,28 @@ Review the initialization logs for any issues:
 ```bash
 sudo cat /var/log/wm8960-soundcard.log
 ```
-**Expected output:** 
+**Expected output:**
 - Log should show successful codec detection at I2C address 0x1a
-- Should contain "install wm8960-soundcard" message
-- Should show successful configuration file creation
-- Should end with "WM8960 service initialization complete"
+- Should show DKMS module status check
+- Should show successful overlay loading and ALSA configuration
+- Should end with health checks passing and "WM8960 service initialization complete successfully"
 - No error messages or warnings about missing devices
 - Example log entries:
-  ```
-  + i2cdetect -y 1 0x1a 0x1a
-  + is_1a=1a
-  + echo 'install wm8960-soundcard'
-  install wm8960-soundcard
-  + dtoverlay wm8960-soundcard
-  + echo 'create wm8960-soundcard configure file'
-  create wm8960-soundcard configure file
-  + echo WM8960 service initialization complete
-  WM8960 service initialization complete
+  ```text
+  [2026-03-09 20:36:46] Starting WM8960 soundcard initialization...
+  [2026-03-09 20:36:48] DKMS module wm8960-soundcard/1.0 is installed for kernel 6.12.62+rpt-rpi-v8
+  [2026-03-09 20:36:48] Verifying I2C interface is available...
+  [2026-03-09 20:36:48] I2C interface verified
+  [2026-03-09 20:36:48] Loading i2c-dev kernel module...
+  [2026-03-09 20:36:53] Detecting WM8960 codec on I2C bus 1 at address 0x1a...
+  [2026-03-09 20:36:53] WM8960 codec detected on attempt 1
+  [2026-03-09 20:36:53] SUCCESS: WM8960 codec detected at I2C address 0x1a (value: 1a)
+  [2026-03-09 20:36:53] Loading wm8960-soundcard device tree overlay...
+  [2026-03-09 20:36:53] Device tree overlay loaded successfully
+  [2026-03-09 20:36:54] ✓ Health check passed: WM8960 kernel module loaded
+  [2026-03-09 20:36:54] ✓ Health check passed: WM8960 sound card visible to ALSA
+  [2026-03-09 20:36:54] ✓ Health check passed: WM8960 playback devices available
+  [2026-03-09 20:36:54] WM8960 service initialization complete successfully
   ```
 
 ### Additional Check: DKMS Status
@@ -424,6 +431,47 @@ This approach provides:
 - **Cleaner boot process:** No kernel warnings or registration errors
 - **Easier troubleshooting:** Service logs show exactly what happened during initialization
 - **Proper I2S interface:** Using i2s-mmap overlay for memory-mapped I2S access
+
+## PipeWire and PulseAudio Support
+
+The install script automatically detects your audio server and configures the WM8960 as the default audio device. No manual configuration is needed.
+
+| Audio Server | Auto-detected? | Config deployed to |
+|---|---|---|
+| PipeWire/WirePlumber | Yes | `/etc/wireplumber/wireplumber.conf.d/40-wm8960-default.conf` |
+| PulseAudio (native) | Yes | `/etc/pulse/default.pa.d/wm8960-default.pa` |
+| pipewire-pulse | Yes (uses WirePlumber config) | WirePlumber rules handle defaults |
+| ALSA-only (headless) | N/A | No extra config needed, `asound.conf` handles it |
+
+### PipeWire (Raspberry Pi OS Trixie Desktop)
+
+If WirePlumber is installed, the installer deploys a priority rule that makes the WM8960 the default sink (output) and source (input), with higher priority than HDMI audio.
+
+- **Config location:** `/etc/wireplumber/wireplumber.conf.d/40-wm8960-default.conf`
+- **Verify with:** `wpctl status` (WM8960 should show as default sink/source with an asterisk)
+- **Switch to HDMI:** `wpctl set-default <hdmi-node-id>` (get the ID from `wpctl status`)
+
+For full setup instructions, troubleshooting, and manual configuration, see the **[PipeWire Setup Guide](pipewire/README.md)**.
+
+### PulseAudio (Legacy Setups)
+
+If native PulseAudio is installed (not `pipewire-pulse`), the installer deploys a config snippet that sets the WM8960 as the default sink and source.
+
+- **Config location:** `/etc/pulse/default.pa.d/wm8960-default.pa`
+- **Verify with:** `pactl info` (Default Sink/Source should reference `wm8960`)
+- **Switch to HDMI:** `pactl set-default-sink <hdmi-sink-name>` (get name from `pactl list sinks short`)
+
+For full setup instructions, troubleshooting, and manual configuration, see the **[PulseAudio Setup Guide](pulseaudio/README.md)**.
+
+### ALSA-Only (Headless / Pi OS Lite)
+
+No PipeWire or PulseAudio configuration is installed. The existing ALSA `asound.conf` handles default device routing. This is the recommended setup for headless and voice assistant use cases.
+
+To add PipeWire support later, install the packages and re-run the install script:
+```bash
+sudo apt install pipewire pipewire-pulse wireplumber
+sudo bash install.sh
+```
 
 ## Advanced Configuration
 
@@ -776,25 +824,29 @@ sudo ./uninstall.sh
 
 The uninstallation script will:
 1. Stop and disable the wm8960-soundcard systemd service
-2. Remove systemd service files and utilities from `/etc/systemd/system/` and `/usr/bin/`
-3. Remove ALSA configuration symlinks (`/etc/asound.conf`, `/var/lib/alsa/asound.state`)
-4. Remove the ALSA configuration directory (`/etc/wm8960-soundcard/`)
-5. Remove the service log file (`/var/log/wm8960-soundcard.log`)
-6. Remove the DKMS kernel module
-7. Remove DKMS source files from `/usr/src/wm8960-soundcard-1.0/`
-8. Remove the device tree overlay from `/boot/overlays/`
-9. Clean up any WM8960 entries from `/boot/firmware/config.txt` (with backup)
+2. Stop and disable the ALSA auto-save timer
+3. Remove systemd service files and utilities from `/etc/systemd/system/` and `/usr/bin/`
+4. Remove ALSA WM8960 symlinks and restore previous config from backups
+5. Remove PipeWire and PulseAudio configuration files (if present)
+6. Remove the ALSA configuration directory (`/etc/wm8960-soundcard/`)
+7. Remove the service log file and logrotate config
+8. Remove the DKMS kernel module
+9. Remove DKMS source files from `/usr/src/wm8960-soundcard-1.0/`
+10. Remove the device tree overlay from `/boot/firmware/overlays/`
+11. Clean up `# wm8960-managed` tagged lines from config.txt (with backup)
 
 ### 3. Manual Cleanup (Optional)
 
-The uninstallation script preserves some system-level settings that may be used by other software. If you want to completely remove everything:
+The uninstall script automatically removes lines tagged with `# wm8960-managed` from `config.txt`. However, some system-level settings are preserved because they may be used by other software. If you want to completely remove everything:
 
 ```bash
-# Remove I2C and I2S parameters from config.txt (edit manually)
-sudo nano /boot/firmware/config.txt
-# Remove lines: dtparam=i2c_arm=on and dtparam=i2s=on
+# Check if any wm8960-managed lines remain in config.txt
+grep 'wm8960-managed' /boot/firmware/config.txt
 
-# Remove i2c-dev from /etc/modules (edit manually)
+# If present, remove them manually (dtparam=i2c_arm=on and dtoverlay=i2s-mmap)
+sudo nano /boot/firmware/config.txt
+
+# Remove i2c-dev from /etc/modules if not needed by other hardware
 sudo nano /etc/modules
 # Remove line: i2c-dev
 
