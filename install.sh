@@ -5,6 +5,43 @@ set -e
 # Capture script directory at the very start (before any directory changes)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# --- Argument parsing ---
+SKIP_PIPEWIRE=0
+SKIP_PULSEAUDIO=0
+AUTO_YES=0
+
+for arg in "$@"; do
+    case "$arg" in
+        --skip-pipewire)
+            SKIP_PIPEWIRE=1
+            ;;
+        --skip-pulseaudio)
+            SKIP_PULSEAUDIO=1
+            ;;
+        --yes|-y)
+            AUTO_YES=1
+            ;;
+        --help|-h)
+            echo "Usage: sudo bash install.sh [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --skip-pipewire     Skip PipeWire/WirePlumber configuration"
+            echo "  --skip-pulseaudio   Skip PulseAudio configuration"
+            echo "  --yes, -y           Auto-confirm all prompts (kernel warning, reboot)"
+            echo "  --help, -h          Show this help message"
+            echo ""
+            echo "By default, the installer detects PipeWire and PulseAudio automatically"
+            echo "and installs configuration files for whichever is present."
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $arg"
+            echo "Run 'sudo bash install.sh --help' for usage information"
+            exit 1
+            ;;
+    esac
+done
+
 echo "==============================================="
 echo "WM8960 Audio HAT Installation Script"
 echo "==============================================="
@@ -36,7 +73,10 @@ if [ -n "$installed_ver" ] && [ "$installed_ver" != "$running_ver" ]; then
     echo ""
     echo "Recommended: reboot first, then re-run this script."
     echo ""
-    if [ -t 0 ]; then
+    if [ "$AUTO_YES" -eq 1 ]; then
+        echo "Auto-confirmed (--yes): continuing with running kernel $running_ver"
+        echo "(Boot-time DKMS rebuild will handle the new kernel automatically)"
+    elif [ -t 0 ]; then
         read -rp "Continue anyway? (y/n): " response
         if [[ ! "$response" =~ ^[Yy]$ ]]; then
             echo "Exiting. Please reboot and re-run: sudo bash install.sh"
@@ -98,6 +138,25 @@ in_all_section() {
         sed -n "$((all_line + 1)),$((next_section_line - 1))p" "$CONFIG_FILE" | grep -qE "$pattern"
     else
         tail -n +"$((all_line + 1))" "$CONFIG_FILE" | grep -qE "$pattern"
+    fi
+}
+
+# Helper: get the actual line number of a pattern within [all] section only
+line_in_all_section() {
+    local pattern="$1"
+    local all_line
+    all_line=$(grep -nE "^[[:space:]]*\[all\]" "$CONFIG_FILE" | head -1 | cut -d: -f1)
+    local next_section_line
+    next_section_line=$(tail -n +"$((all_line + 1))" "$CONFIG_FILE" | grep -nE "^\[" | head -1 | cut -d: -f1)
+    if [ -n "$next_section_line" ]; then
+        next_section_line=$((all_line + next_section_line))
+        sed -n "$((all_line + 1)),$((next_section_line - 1))p" "$CONFIG_FILE" | grep -nE "$pattern" | head -1 | while IFS=: read -r rel_line _rest; do
+            echo "$((all_line + rel_line))"
+        done
+    else
+        tail -n +"$((all_line + 1))" "$CONFIG_FILE" | grep -nE "$pattern" | head -1 | while IFS=: read -r rel_line _rest; do
+            echo "$((all_line + rel_line))"
+        done
     fi
 }
 
@@ -286,7 +345,7 @@ if ! in_all_section "^[^#]*dtoverlay=i2s-mmap"; then
     if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
         # Insert after dtparam=i2c_arm=on in [all] if it exists, otherwise after [all] header
         if in_all_section "^[^#]*dtparam=i2c_arm=on"; then
-            target_line=$(grep -nE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE" | head -1 | cut -d: -f1)
+            target_line=$(line_in_all_section "^[^#]*dtparam=i2c_arm=on")
         else
             target_line=$(grep -nE "^[[:space:]]*\[all\]" "$CONFIG_FILE" | head -1 | cut -d: -f1)
         fi
@@ -341,7 +400,9 @@ else
 fi
 
 # --- PipeWire / WirePlumber configuration (conditional) ---
-if dpkg -l wireplumber 2>/dev/null | grep -q '^ii'; then
+if [ "$SKIP_PIPEWIRE" -eq 1 ]; then
+    echo "PipeWire configuration skipped (--skip-pipewire)"
+elif dpkg -l wireplumber 2>/dev/null | grep -q '^ii'; then
     echo "PipeWire/WirePlumber detected - installing WM8960 default device rules..."
     if [ -f "$SCRIPT_DIR/pipewire/wireplumber-wm8960.conf" ]; then
         cp "$SCRIPT_DIR/pipewire/wireplumber-wm8960.conf" /etc/wm8960-soundcard/
@@ -358,7 +419,9 @@ fi
 
 # --- PulseAudio configuration (conditional) ---
 # Only install for native PulseAudio, NOT for pipewire-pulse (which uses WirePlumber config above)
-if dpkg -l pulseaudio 2>/dev/null | grep -q '^ii' && ! dpkg -l pipewire-pulse 2>/dev/null | grep -q '^ii'; then
+if [ "$SKIP_PULSEAUDIO" -eq 1 ]; then
+    echo "PulseAudio configuration skipped (--skip-pulseaudio)"
+elif dpkg -l pulseaudio 2>/dev/null | grep -q '^ii' && ! dpkg -l pipewire-pulse 2>/dev/null | grep -q '^ii'; then
     echo "PulseAudio detected (native) - installing WM8960 default device config..."
     if [ -f "$SCRIPT_DIR/pulseaudio/pulseaudio-wm8960.pa" ]; then
         cp "$SCRIPT_DIR/pulseaudio/pulseaudio-wm8960.pa" /etc/wm8960-soundcard/
@@ -459,50 +522,50 @@ validation_errors=0
 
 # Check if DKMS module was installed
 if dkms status | grep -q "wm8960-soundcard/1.0"; then
-    echo "✓ DKMS module installed"
+    echo "[PASS] DKMS module installed"
 else
-    echo "✗ DKMS module not found"
+    echo "[FAIL] DKMS module not found"
     validation_errors=$((validation_errors + 1))
 fi
 
 # Check if device tree overlay was copied
 if [ -f "$BOOT_OVERLAYS/wm8960-soundcard.dtbo" ]; then
-    echo "✓ Device tree overlay installed"
+    echo "[PASS] Device tree overlay installed"
 else
-    echo "✗ Device tree overlay not found"
+    echo "[FAIL] Device tree overlay not found"
     validation_errors=$((validation_errors + 1))
 fi
 
 # Check if systemd service was installed
 if [ -f "/etc/systemd/system/wm8960-soundcard.service" ]; then
-    echo "✓ Systemd service installed"
+    echo "[PASS] Systemd service installed"
 else
-    echo "✗ Systemd service not found"
+    echo "[FAIL] Systemd service not found"
     validation_errors=$((validation_errors + 1))
 fi
 
 # Check if config files were copied
 if [ -f "/etc/wm8960-soundcard/asound.conf" ] && [ -f "/etc/wm8960-soundcard/wm8960_asound.state" ]; then
-    echo "✓ ALSA configuration files installed"
+    echo "[PASS] ALSA configuration files installed"
 else
-    echo "✗ ALSA configuration files not found"
+    echo "[FAIL] ALSA configuration files not found"
     validation_errors=$((validation_errors + 1))
 fi
 
 # Check if config.txt was modified correctly
 if grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
-    echo "✓ I2C enabled in config.txt"
+    echo "[PASS] I2C enabled in config.txt"
 else
-    echo "✗ I2C not enabled in config.txt"
+    echo "[FAIL] I2C not enabled in config.txt"
     validation_errors=$((validation_errors + 1))
 fi
 
 # PipeWire/PulseAudio config checks (informational only, not a failure)
 if [ -f "/etc/wireplumber/wireplumber.conf.d/40-wm8960-default.conf" ]; then
-    echo "✓ WirePlumber configuration installed (WM8960 set as default device)"
+    echo "[PASS] WirePlumber configuration installed (WM8960 set as default device)"
 fi
 if [ -f "/etc/pulse/default.pa.d/wm8960-default.pa" ]; then
-    echo "✓ PulseAudio configuration installed (WM8960 set as default device)"
+    echo "[PASS] PulseAudio configuration installed (WM8960 set as default device)"
 fi
 
 if [ "$validation_errors" -eq 0 ]; then
@@ -573,8 +636,11 @@ echo "   sudo cat /var/log/wm8960-soundcard.log"
 echo ""
 echo "For detailed troubleshooting, see the README.md file."
 echo ""
-echo "Reboot now? (y/n)"
-if [ -t 0 ]; then
+if [ "$AUTO_YES" -eq 1 ]; then
+    echo "Auto-confirmed (--yes): rebooting..."
+    reboot
+elif [ -t 0 ]; then
+    echo "Reboot now? (y/n)"
     read -r response
     if [[ "$response" =~ ^[Yy]$ ]]; then
         echo "Rebooting..."

@@ -236,24 +236,24 @@ if [ "x${is_1a}" != "x" ]; then
   log_message "Performing health checks..."
   
   # Check 1: Verify WM8960 kernel modules are loaded
-  if lsmod | grep -q "snd_soc_wm8960"; then
-    log_message "✓ Health check passed: WM8960 kernel module loaded"
+  if lsmod | grep -q "^snd_soc_wm8960 "; then
+    log_message "[PASS] Health check: WM8960 kernel module loaded"
   else
-    log_message "⚠ WARNING: WM8960 kernel module not detected in lsmod"
+    log_message "[WARN] WARNING: WM8960 kernel module not detected in lsmod"
   fi
   
   # Check 2: Verify ALSA can see the sound card
   if grep -q "wm8960" /proc/asound/cards 2>/dev/null; then
-    log_message "✓ Health check passed: WM8960 sound card visible to ALSA"
+    log_message "[PASS] Health check: WM8960 sound card visible to ALSA"
   else
-    log_message "⚠ WARNING: WM8960 sound card not visible in /proc/asound/cards"
+    log_message "[WARN] WARNING: WM8960 sound card not visible in /proc/asound/cards"
   fi
   
   # Check 3: Verify playback devices are available
   if aplay -l 2>/dev/null | grep -q "wm8960"; then
-    log_message "✓ Health check passed: WM8960 playback devices available"
+    log_message "[PASS] Health check: WM8960 playback devices available"
   else
-    log_message "⚠ WARNING: WM8960 playback devices not found"
+    log_message "[WARN] WARNING: WM8960 playback devices not found"
   fi
   
   # Log kernel module version information if debug mode is enabled

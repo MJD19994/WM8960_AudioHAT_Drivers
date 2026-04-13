@@ -70,8 +70,8 @@ cat /proc/asound/cards
 ## 4. No Sound
 **Diagnosis:** Ensure volume is up and not muted:
 ```bash
-amixer -c wm8960soundcard sget 'Speaker'
-amixer -c wm8960soundcard sget 'Headphone'
+amixer -c wm8960soundcard sget 'Speaker Playback Volume'
+amixer -c wm8960soundcard sget 'Headphone Playback Volume'
 ```
 
 **Solution:**

@@ -87,7 +87,36 @@ sudo reboot
 
 ## Verification Procedures
 
-After rebooting, perform the following checks to verify the installation. All seven checks should pass for a successful installation:
+### Quick Verification: Automated Test Script
+
+The fastest way to verify your installation is to run the automated test script:
+
+```bash
+# Quick automated checks only (no audio playback/recording)
+cd ~/WM8960_AudioHAT_Drivers
+sudo bash test-audio.sh --quick
+
+# Full test including interactive speaker and microphone checks
+sudo bash test-audio.sh
+```
+
+The test script runs 10 checks:
+1. Systemd service status (active/enabled)
+2. DKMS module installed for running kernel
+3. I2C codec detection at address 0x1a
+4. Kernel module verification (codec + soundcard)
+5. Sound card visible in ALSA
+6. Playback device available
+7. Capture device available
+8. ALSA configuration symlink correct
+9. Speaker playback test (interactive — plays tone, asks for confirmation)
+10. Microphone capture test (interactive — records 3s, plays back, asks for confirmation)
+
+Checks 9-10 are automatically skipped in `--quick` mode or when running non-interactively (e.g., piped or in a script). The exit code equals the number of failed tests (0 = all pass).
+
+### Manual Verification
+
+If you prefer to check things individually, the following seven checks should all pass:
 
 ### Check 1: Service Status
 Verify the WM8960 service is active and loaded successfully:
@@ -207,9 +236,9 @@ sudo cat /var/log/wm8960-soundcard.log
   [2026-03-09 20:36:53] SUCCESS: WM8960 codec detected at I2C address 0x1a (value: 1a)
   [2026-03-09 20:36:53] Loading wm8960-soundcard device tree overlay...
   [2026-03-09 20:36:53] Device tree overlay loaded successfully
-  [2026-03-09 20:36:54] ✓ Health check passed: WM8960 kernel module loaded
-  [2026-03-09 20:36:54] ✓ Health check passed: WM8960 sound card visible to ALSA
-  [2026-03-09 20:36:54] ✓ Health check passed: WM8960 playback devices available
+  [2026-03-09 20:36:54] [PASS] Health check: WM8960 kernel module loaded
+  [2026-03-09 20:36:54] [PASS] Health check: WM8960 sound card visible to ALSA
+  [2026-03-09 20:36:54] [PASS] Health check: WM8960 playback devices available
   [2026-03-09 20:36:54] WM8960 service initialization complete successfully
   ```
 
@@ -225,35 +254,7 @@ sudo dkms status
   wm8960-soundcard/1.0, 5.15.84-v8+, aarch64: installed
   ```
 
-If all seven checks pass, your WM8960 Audio HAT is properly installed and ready to use!
-
-### Quick Verification: Automated Test Script
-
-Instead of running the manual checks above, you can use the automated test script to verify everything at once:
-
-```bash
-# Full test including interactive speaker and microphone checks
-cd ~/WM8960_AudioHAT_Drivers
-sudo bash test-audio.sh
-
-# Quick automated checks only (no audio playback/recording)
-cd ~/WM8960_AudioHAT_Drivers
-sudo bash test-audio.sh --quick
-```
-
-The test script runs 10 checks:
-1. Systemd service status (active/enabled)
-2. DKMS module installed for running kernel
-3. I2C codec detection at address 0x1a
-4. Kernel module verification (codec + soundcard)
-5. Sound card visible in ALSA
-6. Playback device available
-7. Capture device available
-8. ALSA configuration symlink correct
-9. Speaker playback test (interactive - plays tone, asks for confirmation)
-10. Microphone capture test (interactive - records 3s, plays back, asks for confirmation)
-
-Checks 9-10 are automatically skipped in `--quick` mode or when running non-interactively (e.g., piped or in a script). The exit code equals the number of failed tests (0 = all pass).
+If all seven manual checks pass, your WM8960 Audio HAT is properly installed and ready to use!
 
 **Note:** For detailed DKMS auto-rebuild diagnostics, review the service log: `sudo cat /var/log/wm8960-soundcard.log`
 

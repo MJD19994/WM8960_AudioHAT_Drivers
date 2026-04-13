@@ -18,23 +18,32 @@
 Core audio features that improve the user experience on desktop and headless setups.
 
 ### 1.1 PipeWire Configuration
-- [ ] Detect if PipeWire is running (default on Trixie/Bookworm desktop)
-- [ ] Ship WirePlumber rules to set WM8960 as default sink/source- [ ] Configure proper sample rate and buffer sizes
-- [ ] Handle coexistence with HDMI audio (priority/profile switching)
+- [x] Detect if PipeWire is running (default on Trixie/Bookworm desktop)
+- [x] Ship WirePlumber rules to set WM8960 as default sink/source
+- [ ] Configure proper sample rate and buffer sizes
+- [x] Handle coexistence with HDMI audio (priority/profile switching)
+- [x] PipeWire setup README with troubleshooting
 
 ### 1.2 PulseAudio Configuration
-- [ ] Ship `default.pa` snippet for PulseAudio setups
-- [ ] Set WM8960 as default sink/source
+- [x] Ship `default.pa` snippet for PulseAudio setups
+- [x] Set WM8960 as default sink/source
 - [ ] Configure proper sample rate for voice and music use cases
-- [ ] Install conditionally (only if PulseAudio is present)
+- [x] Install conditionally (only if PulseAudio is present)
+- [x] PulseAudio setup README with troubleshooting
 
-### 1.3 Headphone Jack Detection
-- [ ] Research WM8960 HP_L pin jack detect via ADDCTL1/ADDCTL2 registers
+### 1.3 Headphone Jack Detection — BLOCKED (hardware)
+**Research complete:** The WM8960 has built-in jack detect (JD2/JD3 pins, registers
+ADDCTL1/ADDCTL2/ADDCTL4), but no commercial HAT (Keyestudio, Seeed, Waveshare)
+wires the 3.5mm jack's mechanical detect switch to these pins. Software-only
+detection via I2C polling is not viable — there's no readable status register
+without a wired JD pin. This feature requires a custom HAT PCB design.
+
+- [x] Research WM8960 HP_L pin jack detect via ADDCTL1/ADDCTL2 registers
+- [ ] Design custom HAT variant with JD2/JD3 wiring (hardware prerequisite)
+- [ ] Port hp_cfg device tree properties from mainline kernel patches
 - [ ] Add GPIO jack detect properties to device tree overlay
-- [ ] Verify `simple_util_init_hp()` in machine driver hooks up correctly
 - [ ] Test automatic speaker mute when headphones inserted
-- [ ] Update ALSA state to handle routing switch
-- [ ] *Note: No manufacturer currently implements this - differentiator*
+- [ ] *Note: No manufacturer currently implements this — differentiator if custom HAT is built*
 
 ### 1.4 UCM (Use Case Manager) Profiles
 - [ ] Create UCM profile for WM8960 sound card
@@ -62,12 +71,9 @@ Support for hardware features beyond the WM8960 codec itself.
 - [ ] Ship example script: button triggers mute/unmute or recording
 - [ ] Install as optional component (skip on HATs without button)
 
-### 2.3 Device Tree Source (.dts)
-- [ ] Decompile existing `.dtbo` to `.dts` on a Pi
-- [ ] Clean up and comment the decompiled source
-- [ ] Add `.dts` to repository alongside `.dtbo`
-- [ ] Add `dtc` compilation step to install script (compile from source, fall back to prebuilt)
-- [ ] Separate DTS variants if needed per HAT
+### ~~2.3 Device Tree Source (.dts)~~ — COMPLETED
+Moved to Completed Features. DTS source decompiled, annotated, and shipped
+with CI verification against compiled .dtbo.
 
 ---
 
@@ -75,54 +81,38 @@ Support for hardware features beyond the WM8960 codec itself.
 
 Quality-of-life scripts and tools.
 
-### 3.1 Audio Test Script
-- [x] `test-audio.sh` with 10 automated + interactive checks:
-  - Systemd service status (active/enabled)
-  - DKMS module installed for running kernel
-  - I2C codec detection at 0x1a
-  - Kernel module verification (codec + soundcard)
-  - Sound card visible in `/proc/asound/cards`
-  - Playback device exists (`aplay -l`)
-  - Capture device exists (`arecord -l`)
-  - ALSA config symlink verification
-  - Interactive speaker test with user confirmation
-  - Interactive mic capture + playback test
-  - `--quick` flag for non-interactive/CI use
-  - Pass/fail/skip summary with exit code
+### ~~3.1 Audio Test Script~~ — COMPLETED
+Moved to Completed Features.
 
-### 3.2 Volume Preset Utility
-- [x] `wm8960-volume` script with named presets:
-  - `speakers` - moderate speaker volume, headphones muted, Class D boost
-  - `headphones` - comfortable headphone volume (-6dB), speakers muted, zero-cross
-  - `recording` - mic capture with moderate gain, ALC off for manual control
-  - `voice` - voice assistant: ALC stereo + noise gate + HPF for speech (Phase 4.3 foundation)
-  - `max` - maximum safe volume for all outputs
-  - `reset` - restore factory defaults from shipped state file
-  - `show` - display current mixer levels
-- [x] Installed to `/usr/bin/wm8960-volume` via install.sh, removed via uninstall.sh
+### ~~3.2 Volume Preset Utility~~ — COMPLETED
+Moved to Completed Features.
 
 ### 3.3 Softvol ALSA Plugin
 - [ ] Add optional `softvol` plugin to `asound.conf` for smoother volume curves
 - [ ] Make it configurable (some users prefer hardware-only volume control)
 
+### ~~3.4 Installer Flags~~ — COMPLETED
+Moved to Completed Features. Install script supports `--help`, `--skip-pipewire`,
+`--skip-pulseaudio`, `--yes` flags.
+
 ---
 
 ## Phase 4: Voice Assistant DSP & Audio Processing (High Priority)
 
-Software DSP for voice assistant use cases. **No WM8960 HAT manufacturer ships any of this** --
+Software DSP for voice assistant use cases. **No WM8960 HAT manufacturer ships any of this** —
 SeeedStudio's DSP features only exist on their USB mic array (dedicated Conexant DSP chip).
 The 2-Mic WM8960 HATs ship with zero audio processing, leaving users to figure it out.
 This is the biggest differentiation opportunity for this project.
 
 > **Key insight:** The most impactful DSP features can be delivered as **config files**, not custom
-> code. PipeWire and PulseAudio already have processing engines built in -- they just need to be
+> code. PipeWire and PulseAudio already have processing engines built in — they just need to be
 > configured for the WM8960 hardware.
 
 ### Voice Assistant Audio Pipeline Reference
 
 The typical preprocessing chain needed for wake word + STT:
 
-```
+```text
 Physical Mic (WM8960 ADC)
     |
 [ALSA/PipeWire Capture] -- 16kHz, 16-bit, mono
@@ -184,20 +174,20 @@ complaint from voice assistant users with audio HATs.
 
 ### 4.2 Noise Suppression
 
-#### RNNoise (Best Quality - Pi 3+ recommended, Zero 2W needs testing)
+#### RNNoise (Best Quality — Pi 3+ recommended, Zero 2W needs testing)
 - [ ] Ship PipeWire filter-chain config with RNNoise module
 - [ ] Neural network-based, significantly better than traditional NS
 - [ ] Created by Jean-Marc Valin (Opus/Speex creator)
 - [ ] Can be chained after AEC in PipeWire filter-chain
 - [ ] Package dependency: `librnnoise-dev` (or build from source)
 - [ ] Test on Pi Zero 2W to confirm performance is acceptable
-- [ ] *Note: This would be a genuine differentiator -- no HAT driver ships this*
+- [ ] *Note: This would be a genuine differentiator — no HAT driver ships this*
 
-#### WebRTC NS (Good Quality - included with AEC)
+#### WebRTC NS (Good Quality — included with AEC)
 - [ ] Enabled automatically as part of the AEC module config (4.1)
 - [ ] No additional config needed when using PipeWire/PulseAudio AEC
 
-#### SpeexDSP NS (Lightest - Pi Zero compatible)
+#### SpeexDSP NS (Lightest — Pi Zero compatible)
 - [ ] Enabled via `denoise=true` in ALSA speex plugin config
 - [ ] Good for headless setups where PipeWire is not available
 
@@ -285,43 +275,90 @@ Long-term project health.
 - [ ] Automatically enable/disable LED and button support
 - [ ] Store detected HAT type in `/etc/wm8960-soundcard/hat-type`
 
-### 5.4 CI/CD
-- [ ] GitHub Actions workflow for:
-  - Shell script linting (shellcheck)
-  - Kernel module compilation test (cross-compile)
-  - DTS compilation verification
-- [ ] Automated release tagging with changelog
+### ~~5.4 CI/CD~~ — COMPLETED
+Moved to Completed Features. GitHub Actions CI with ShellCheck + DTS verification.
+
+### 5.5 Cross-Kernel Testing
+- [ ] Set up CI matrix testing across multiple kernel versions
+- [ ] Test DKMS build against kernel 6.1 (Bookworm), 6.6 (Bookworm LTS), 6.12+ (Trixie)
+- [ ] Validate compatibility wrapper logic in wm8960.c
+
+### 5.6 Packaging
+- [ ] Create `.deb` package for apt-based installation
+- [ ] Add to a PPA or custom apt repository
+- [ ] Would replace the current git-clone-and-run workflow
+- [ ] Include proper pre/post install/remove scripts
 
 ---
 
 ## Completed Features
 
-Features already implemented and working.
+Features implemented and shipped in V1.2.0 (and earlier).
 
+### Core Driver
 - [x] Custom WM8960 codec driver (`snd-soc-wm8960.ko`)
 - [x] Custom machine driver (`snd-soc-wm8960-soundcard.ko`)
-- [x] DKMS module management
+- [x] Unique driver naming (`asoc-wm8960-soundcard`) to avoid conflicts
+- [x] Kernel 6.13+ compatibility wrappers
+- [x] All WM8960 hardware DSP controls exposed (3D enhance, ALC, noise gate, HPF, deemphasis)
+
+### DKMS & Boot
+- [x] DKMS module management with idempotent source sync
+- [x] Boot-time DKMS auto-rebuild (handles Pi OS kernel update race condition)
+- [x] Kernel version mismatch detection at install time
 - [x] Dynamic overlay loading via systemd service
 - [x] I2C codec detection with 5 retries
 - [x] Overlay double-load prevention
+
+### ALSA
 - [x] ALSA dmix/dsnoop/asym/plug configuration
 - [x] ALSA state save/restore
 - [x] ALSA auto-save timer (optional, 6h interval)
 - [x] Backup rotation (10 boot / 5 periodic)
-- [x] 3 post-init health checks
-- [x] Debug mode (DEBUG=1)
-- [x] Timestamped logging to `/var/log/wm8960-soundcard.log`
+
+### Audio Server Support
+- [x] PipeWire/WirePlumber config for default sink/source (conditional install)
+- [x] PulseAudio config for default sink/source (conditional install)
+
+### Install / Uninstall
+- [x] Installer flags: `--help`, `--skip-pipewire`, `--skip-pulseaudio`, `--yes`
 - [x] 13-step install with progress reporting
 - [x] 5-point install validation
 - [x] Boot partition auto-detection (`/boot/firmware/` vs `/boot/`)
 - [x] Config.txt backup before modifications
+- [x] Config.txt edits tagged with `# wm8960-managed` for safe uninstall
+- [x] Block-aware config.txt checks (won't misread `[pi4]`/`[cm4]` sections)
+- [x] CRLF line-ending stripping during install (Windows editing safety)
 - [x] I2S-MMAP conflict detection
+- [x] `alsa-utils` included in install dependencies
+- [x] Clean uninstall script (11 steps) with backup restoration
+
+### Service & Logging
 - [x] Systemd retry logic (3 retries, 120s timeout)
-- [x] Clean uninstall script (10 steps)
-- [x] Kernel 6.13+ compatibility wrappers
-- [x] Unique driver naming (`asoc-wm8960-soundcard`) to avoid conflicts
-- [x] Comprehensive README and TROUBLESHOOTING docs
-- [x] All WM8960 hardware DSP controls exposed (3D enhance, ALC, noise gate, HPF, deemphasis)
+- [x] StartLimit directives in `[Unit]` per systemd v230+ spec
+- [x] 3 post-init health checks
+- [x] Debug mode (DEBUG=1)
+- [x] Timestamped logging to `/var/log/wm8960-soundcard.log`
+- [x] Log rotation via logrotate (weekly, 6 rotations, compress)
+
+### User Utilities
+- [x] `test-audio.sh` — 10-check diagnostic script with `--quick` mode
+- [x] `wm8960-volume` — preset utility (speakers/headphones/recording/voice/max/reset/show)
+
+### Device Tree
+- [x] DTS source file decompiled, annotated, and shipped (`kernel_module/wm8960-soundcard.dts`)
+- [x] CI verification: shipped `.dtbo` matches compiled `.dts` source
+
+### CI/CD
+- [x] GitHub Actions CI: ShellCheck linting + DTS-to-DTBO compilation verification
+- [x] Full ShellCheck compliance across all scripts
+- [x] `.gitattributes` enforcing LF line endings for shell/config/source files
+
+### Documentation
+- [x] Comprehensive README with install/uninstall steps, troubleshooting, and verification
+- [x] Expanded TROUBLESHOOTING guide with WM8960-specific diagnostics
+- [x] ALSA Mixer Controls Guide with exact control names for Wyoming/Rhasspy
+- [x] PipeWire and PulseAudio setup READMEs
 
 ---
 
@@ -329,8 +366,8 @@ Features already implemented and working.
 
 | Phase | Impact | Effort | When |
 |-------|--------|--------|------|
-| Phase 1 | High - core audio UX | Medium | Next |
-| Phase 2 | Medium - hardware extras | Medium-High | After Phase 1 |
-| Phase 3 | Lower - quality of life | Low-Medium | Ongoing |
-| Phase 4 | High - voice assistant DSP | Medium | Alongside Phase 1 |
+| Phase 1 | High — core audio UX | Medium | Next (sample rate tuning, jack detect) |
+| Phase 2 | Medium — hardware extras | Medium-High | After Phase 1 |
+| Phase 3 | Lower — quality of life | Low-Medium | Ongoing |
+| Phase 4 | High — voice assistant DSP | Medium | Alongside Phase 1 |
 | Phase 5 | Maintainability | High | Ongoing |

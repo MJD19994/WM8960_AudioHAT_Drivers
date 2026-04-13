@@ -208,7 +208,7 @@ static int simple_link_init(struct simple_util_priv *priv,
 	ret = simple_util_parse_daifmt(dev, node, codec,
 				       prefix, &dai_link->dai_fmt);
 	if (ret < 0)
-		return 0;
+		return ret;
 
 	dai_link->init			= simple_util_dai_init;
 	dai_link->ops			= &simple_ops;

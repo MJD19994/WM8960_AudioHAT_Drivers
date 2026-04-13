@@ -212,17 +212,17 @@ show_levels() {
     echo "Current WM8960 mixer levels:"
     echo ""
     echo "=== Output ==="
-    amixer -c "$CARD" sget 'Playback' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
-    amixer -c "$CARD" sget 'Speaker' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
-    amixer -c "$CARD" sget 'Headphone' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    amixer -c "$CARD" sget 'Playback Volume' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    amixer -c "$CARD" sget 'Speaker Playback Volume' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    amixer -c "$CARD" sget 'Headphone Playback Volume' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
     echo ""
     echo "=== Input ==="
-    amixer -c "$CARD" sget 'Capture' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    amixer -c "$CARD" sget 'Capture Volume' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
     echo ""
     echo "=== Processing ==="
     amixer -c "$CARD" sget 'ALC Function' 2>/dev/null | grep "Item0:" || true
-    amixer -c "$CARD" sget 'Noise Gate' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
-    amixer -c "$CARD" sget 'ADC High Pass Filter' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    amixer -c "$CARD" sget 'Noise Gate Switch' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    amixer -c "$CARD" sget 'ADC High Pass Filter Switch' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
 }
 
 # ---------- Main ----------
