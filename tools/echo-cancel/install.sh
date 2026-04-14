@@ -91,7 +91,7 @@ if [ "$ENGINE" = "webrtc" ]; then
         log "snd-aloop already loaded"
     fi
     # Persist module across reboots
-    if ! grep -q "^snd-aloop" /etc/modules-load.d/*.conf 2>/dev/null; then
+    if ! grep -qE "^snd[-_]aloop" /etc/modules-load.d/*.conf 2>/dev/null && ! grep -qE "^snd[-_]aloop" /etc/modules 2>/dev/null; then
         echo "snd-aloop" > /etc/modules-load.d/snd-aloop.conf
     fi
 

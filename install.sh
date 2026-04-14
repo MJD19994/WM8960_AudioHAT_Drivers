@@ -158,15 +158,16 @@ line_in_all_section() {
     all_line=$(grep -nE "^[[:space:]]*\[all\]" "$CONFIG_FILE" | head -1 | cut -d: -f1)
     local next_section_line
     next_section_line=$(tail -n +"$((all_line + 1))" "$CONFIG_FILE" | grep -nE "^\[" | head -1 | cut -d: -f1)
+    local section_content rel_line
     if [ -n "$next_section_line" ]; then
         next_section_line=$((all_line + next_section_line))
-        sed -n "$((all_line + 1)),$((next_section_line - 1))p" "$CONFIG_FILE" | grep -nE "$pattern" | head -1 | while IFS=: read -r rel_line _rest; do
-            echo "$((all_line + rel_line))"
-        done
+        section_content=$(sed -n "$((all_line + 1)),$((next_section_line - 1))p" "$CONFIG_FILE")
     else
-        tail -n +"$((all_line + 1))" "$CONFIG_FILE" | grep -nE "$pattern" | head -1 | while IFS=: read -r rel_line _rest; do
-            echo "$((all_line + rel_line))"
-        done
+        section_content=$(tail -n +"$((all_line + 1))" "$CONFIG_FILE")
+    fi
+    rel_line=$(echo "$section_content" | grep -nE "$pattern" | head -1 | cut -d: -f1)
+    if [ -n "$rel_line" ]; then
+        echo "$((all_line + rel_line))"
     fi
 }
 
