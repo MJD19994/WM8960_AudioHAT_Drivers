@@ -24,7 +24,9 @@ jobs:
             test-audio.sh \
             wm8960-soundcard.sh \
             wm8960-volume \
-            wm8960-alsa-store
+            wm8960-alsa-store \
+            wm8960-diag \
+            tools/echo-cancel/install.sh
 
   dts-compile:
     name: DTS Compilation

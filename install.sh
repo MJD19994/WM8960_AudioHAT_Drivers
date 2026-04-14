@@ -207,7 +207,7 @@ fi
 # This warns if user already has i2s-mmap from a previous install or custom setup
 # The script will add i2s-mmap later if not present, but warns if it already exists
 # in case the user is experiencing conflicts and needs to know about it
-if grep -qE "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE"; then
+if grep -E "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE" | grep -qv "wm8960-managed"; then
     echo ""
     echo "=========================================="
     echo "WARNING: I2S-MMAP Overlay Already Present"
@@ -341,13 +341,16 @@ echo "Step 7/13: Configuring I2S interface in $CONFIG_FILE..."
 # Note: In rare cases, this may conflict with custom audio setups
 # If you experience audio issues after installation, try commenting out dtoverlay=i2s-mmap in config.txt
 
-# Remove old dtparam=i2s=on if present
-if grep -qE "^[[:space:]]*dtparam=i2s=on" "$CONFIG_FILE"; then
-    if ! sed -i 's/^[[:space:]]*dtparam=i2s=on/# dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap/' "$CONFIG_FILE"; then
-        echo "ERROR: Failed to comment out dtparam=i2s=on in config.txt"
-        exit 1
+# Remove old dtparam=i2s=on if present in [all] section
+if in_all_section "^[[:space:]]*dtparam=i2s=on"; then
+    local_line=$(line_in_all_section "^[[:space:]]*dtparam=i2s=on")
+    if [ -n "$local_line" ]; then
+        if ! sed -i "${local_line}s/^[[:space:]]*dtparam=i2s=on.*/# dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap # wm8960-managed/" "$CONFIG_FILE"; then
+            echo "ERROR: Failed to comment out dtparam=i2s=on in config.txt"
+            exit 1
+        fi
+        echo "Replaced dtparam=i2s=on with dtoverlay=i2s-mmap"
     fi
-    echo "Replaced dtparam=i2s=on with dtoverlay=i2s-mmap"
 fi
 
 # Add dtoverlay=i2s-mmap if not present in [all] section

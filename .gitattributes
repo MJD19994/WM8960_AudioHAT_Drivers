@@ -29,5 +29,8 @@ dkms.conf text eol=lf
 # CI/CD workflow files
 *.yml text eol=lf
 
+# Documentation
+*.md text eol=lf
+
 # Binary overlay - do not modify
 *.dtbo binary

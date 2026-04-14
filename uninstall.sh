@@ -109,7 +109,7 @@ echo "Log file and logrotate config removed"
 echo ""
 echo "Step 8/11: Removing DKMS kernel module..."
 if dkms status | grep -q "wm8960-soundcard"; then
-    dkms remove wm8960-soundcard/1.0 --all
+    dkms remove wm8960-soundcard/1.0 --all || echo "Warning: DKMS removal returned an error (continuing uninstall)"
     # Verify removal was successful
     if ! dkms status | grep -q "wm8960-soundcard"; then
         echo "DKMS package successfully removed"

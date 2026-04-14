@@ -204,7 +204,7 @@ The first boot after a kernel update may take ~30 seconds longer while the modul
 
 ## 11. General Tips
 - Run `sudo bash test-audio.sh` for an automated 10-check diagnostic run
-- Use `sudo ./test-audio.sh --quick` for non-interactive CI/headless testing
+- Use `sudo bash test-audio.sh --quick` for non-interactive CI/headless testing
 - Check the service log for timestamped diagnostics: `sudo cat /var/log/wm8960-soundcard.log`
 - Ensure your system is up to date: `sudo apt update && sudo apt upgrade`
 - After any kernel update, reboot to allow the DKMS auto-rebuild

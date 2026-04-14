@@ -62,20 +62,22 @@ Execute the installation script with root privileges:
 sudo ./install.sh
 ```
 
-The installation script will:
-1. Check for pending kernel updates (warns if reboot needed)
-2. Update package lists with `apt update`
-3. Install Linux kernel headers, DKMS, git, i2c-tools, and ALSA plugins
-4. Configure I2C in `/boot/firmware/config.txt` with `# wm8960-managed` tags
-5. Compile and install the wm8960-soundcard kernel module via DKMS
-6. Copy the device tree overlay to `/boot/firmware/overlays/`
-7. Configure kernel modules in `/etc/modules` (add i2c-dev)
-8. Enable I2S-MMAP overlay in config.txt
-9. Install ALSA configuration files to `/etc/wm8960-soundcard/`
-10. Conditionally install PipeWire/PulseAudio default device configs (if detected)
-11. Install the systemd service script, volume utility, and logrotate config
-12. Install and enable the systemd service
+The installation script performs 13 steps:
+1. Update package lists
+2. Install kernel headers
+3. Install required packages (DKMS, git, i2c-tools, alsa-utils, ALSA plugins) and configure I2C in config.txt
+4. Compile and install the wm8960-soundcard kernel module via DKMS
+5. Copy the device tree overlay to `/boot/firmware/overlays/`
+6. Configure kernel modules in `/etc/modules` (add i2c-dev)
+7. Enable I2S-MMAP overlay in config.txt
+8. Install ALSA configuration files, version info, and PipeWire/PulseAudio configs (if detected)
+9. Install systemd service script, volume utility, and diagnostic tool
+10. Install systemd service file and logrotate config
+11. Install ALSA auto-save components (disabled by default)
+12. Enable the systemd service
 13. Validate the installation (DKMS, overlay, service, ALSA, config.txt)
+
+A pre-flight check warns if a kernel update is pending reboot. Use `--help` for additional options (`--skip-pipewire`, `--skip-pulseaudio`, `--yes`).
 
 **Note:** The script does NOT add `dtoverlay=wm8960-soundcard` to config.txt - the overlay is loaded dynamically by the service for better reliability.
 
@@ -474,6 +476,17 @@ sudo apt install pipewire pipewire-pulse wireplumber
 sudo bash install.sh
 ```
 
+## Echo Cancellation
+
+WebRTC AEC3 echo cancellation is available for voice assistant and conferencing use cases (~30dB attenuation). Supports bare ALSA (loopback router), PipeWire, and PulseAudio.
+
+```bash
+cd tools/echo-cancel
+sudo bash install.sh
+```
+
+See [tools/echo-cancel/README.md](tools/echo-cancel/README.md) for full documentation.
+
 ## Advanced Configuration
 
 ### Adjusting Sample Rates
@@ -792,18 +805,7 @@ sudo systemctl restart wm8960-soundcard.service
 3. Check CPU load: `top` or `htop`
 4. Disable unnecessary background services
 5. Ensure adequate power supply (quality USB power adapter)
-6. Update Raspberry Pi firmware: `sudo rpi-update`
-
-### Issue 11: Python Installation Fails
-
-**Symptoms:** pip3 install command fails during installation
-
-**Solutions:**
-1. Verify Python 3 is installed: `python3 --version`
-2. Update pip: `sudo pip3 install --upgrade pip`
-3. Check for disk space: `df -h`
-4. Install build dependencies: `sudo apt install python3-dev build-essential`
-5. Check install.sh completed without errors
+6. Ensure system is up to date: `sudo apt update && sudo apt upgrade`
 
 For additional troubleshooting information, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
@@ -880,11 +882,8 @@ If you encounter issues:
 1. **Check the Troubleshooting Section:** Most common problems are covered above
 2. **Review Logs:** Check `/var/log/wm8960-soundcard.log` and `sudo journalctl -u wm8960-soundcard.service`
 3. **Search Issues:** Look through existing [GitHub Issues](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/issues)
-4. **Open an Issue:** Create a new issue with:
-   - Raspberry Pi model and OS version
-   - Output of verification checks
-   - Relevant log files
-   - Description of the problem
+4. **Run Diagnostics:** `sudo wm8960-diag` generates a full system report you can paste into an issue
+5. **Open an Issue:** Create a new issue with the `wm8960-diag` output at [GitHub Issues](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/issues)
 
 ### Contributing
 
