@@ -28,7 +28,7 @@ log_error_exit() {
 
 WM8960_VERSION="unknown"
 if [ -f /etc/wm8960-soundcard/version ]; then
-  WM8960_VERSION="$(cat /etc/wm8960-soundcard/version | tr -d '[:space:]')"
+  WM8960_VERSION="$(tr -d '[:space:]' < /etc/wm8960-soundcard/version)"
 fi
 log_message "Starting WM8960 soundcard initialization (v${WM8960_VERSION})..."
 

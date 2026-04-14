@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Read version from VERSION file
 if [ -f "$SCRIPT_DIR/VERSION" ]; then
-    WM8960_VERSION="$(cat "$SCRIPT_DIR/VERSION" | tr -d '[:space:]')"
+    WM8960_VERSION="$(tr -d '[:space:]' < "$SCRIPT_DIR/VERSION")"
 else
     WM8960_VERSION="unknown"
 fi
