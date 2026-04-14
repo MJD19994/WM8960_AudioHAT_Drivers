@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-only
 # WM8960 Audio HAT - Post-Installation Audio Test Script
 # Runs automated and interactive checks to verify the audio system is working
 # Usage: sudo bash test-audio.sh [--quick]

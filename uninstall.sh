@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-only
 
 set -e
 
@@ -31,6 +32,7 @@ rm -f /etc/systemd/system/wm8960-alsa-store.service
 rm -f /etc/systemd/system/wm8960-alsa-store.timer
 rm -f /usr/bin/wm8960-alsa-store
 rm -f /usr/bin/wm8960-volume
+rm -f /usr/bin/wm8960-diag
 systemctl daemon-reload
 echo "Service files and utilities removed"
 

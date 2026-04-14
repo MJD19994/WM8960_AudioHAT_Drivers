@@ -111,7 +111,7 @@ static int simple_parse_dai(struct device_node *node,
 	 * 2) user need to rebind Sound Card everytime
 	 *    if he unbinded CPU or Codec.
 	 */
-	ret = snd_soc_of_get_dai_name(node, &dlc->dai_name,0);
+	ret = snd_soc_of_get_dai_name(node, &dlc->dai_name, 0);
 	if (ret < 0)
 		return ret;
 

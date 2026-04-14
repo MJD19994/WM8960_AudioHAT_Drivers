@@ -1,9 +1,17 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-only
 
 set -e
 
 # Capture script directory at the very start (before any directory changes)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Read version from VERSION file
+if [ -f "$SCRIPT_DIR/VERSION" ]; then
+    WM8960_VERSION="$(cat "$SCRIPT_DIR/VERSION" | tr -d '[:space:]')"
+else
+    WM8960_VERSION="unknown"
+fi
 
 # --- Argument parsing ---
 SKIP_PIPEWIRE=0
@@ -22,6 +30,8 @@ for arg in "$@"; do
             AUTO_YES=1
             ;;
         --help|-h)
+            echo "WM8960 Audio HAT Drivers v${WM8960_VERSION}"
+            echo ""
             echo "Usage: sudo bash install.sh [OPTIONS]"
             echo ""
             echo "Options:"
@@ -43,7 +53,7 @@ for arg in "$@"; do
 done
 
 echo "==============================================="
-echo "WM8960 Audio HAT Installation Script"
+echo "WM8960 Audio HAT Installation Script v${WM8960_VERSION}"
 echo "==============================================="
 echo ""
 
@@ -399,6 +409,15 @@ else
     exit 1
 fi
 
+# Write installed version
+if [ -f "$SCRIPT_DIR/VERSION" ]; then
+    cp "$SCRIPT_DIR/VERSION" /etc/wm8960-soundcard/version
+    echo "Version $(cat /etc/wm8960-soundcard/version) installed"
+else
+    echo "unknown" > /etc/wm8960-soundcard/version
+    echo "Warning: VERSION file not found, version set to 'unknown'"
+fi
+
 # --- PipeWire / WirePlumber configuration (conditional) ---
 if [ "$SKIP_PIPEWIRE" -eq 1 ]; then
     echo "PipeWire configuration skipped (--skip-pipewire)"
@@ -464,6 +483,14 @@ if [ -f "$SCRIPT_DIR/wm8960-volume" ]; then
     echo "Installed wm8960-volume preset utility"
 else
     echo "Warning: wm8960-volume not found in script directory (optional)"
+fi
+
+# Copy diagnostic dump script to /usr/bin
+if [ -f "$SCRIPT_DIR/wm8960-diag" ]; then
+    install_script "$SCRIPT_DIR/wm8960-diag" /usr/bin/wm8960-diag
+    echo "Installed wm8960-diag diagnostic utility"
+else
+    echo "Warning: wm8960-diag not found in script directory (optional)"
 fi
 
 echo ""

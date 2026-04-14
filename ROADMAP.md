@@ -95,6 +95,32 @@ Moved to Completed Features.
 Moved to Completed Features. Install script supports `--help`, `--skip-pipewire`,
 `--skip-pulseaudio`, `--yes` flags.
 
+### 3.5 Diagnostic Dump Script
+- [ ] `wm8960-diag` script that collects all debug info in one command
+- [ ] Output: kernel version, DKMS status, service log, config.txt entries,
+      i2cdetect, lsmod, dmesg | grep wm8960, ALSA card/state info
+- [ ] Install to `/usr/bin/wm8960-diag` via install.sh
+- [ ] Formatted for easy paste into GitHub issues
+- [ ] No root required where possible (fall back gracefully)
+
+### 3.6 Version Tracking
+- [ ] Write installed version to `/etc/wm8960-soundcard/version` at install time
+- [ ] Source version from git tag, VERSION file, or fallback string
+- [ ] Display version in `wm8960-diag` output and service log at boot
+- [ ] Include in `install.sh --help` and `wm8960-volume --help` output
+
+### 3.7 In-Place Upgrade Path
+- [ ] `install.sh --upgrade` that preserves user's ALSA mixer state
+- [ ] Auto-detect existing install and skip config.txt if managed markers present
+- [ ] Preserve PipeWire/PulseAudio configs unless `--force` is used
+- [ ] Show diff of what changed vs previous version
+
+### 3.8 Bookworm Compatibility
+- [ ] Test install and driver load on Raspberry Pi OS Bookworm (kernel 6.1/6.6)
+- [ ] Document any Bookworm-specific quirks or workarounds
+- [ ] Verify DKMS build against Bookworm kernel headers
+- [ ] Add Bookworm to supported OS list in README if tests pass
+
 ---
 
 ## Phase 4: Voice Assistant DSP & Audio Processing (High Priority)

@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-only
 # WM8960 Soundcard Service Script
 # This script dynamically loads the WM8960 overlay after detecting the I2C codec
 # It runs on boot via systemd service and ensures proper initialization order
@@ -25,7 +26,11 @@ log_error_exit() {
   exit "${2:-1}"
 }
 
-log_message "Starting WM8960 soundcard initialization..."
+WM8960_VERSION="unknown"
+if [ -f /etc/wm8960-soundcard/version ]; then
+  WM8960_VERSION="$(cat /etc/wm8960-soundcard/version | tr -d '[:space:]')"
+fi
+log_message "Starting WM8960 soundcard initialization (v${WM8960_VERSION})..."
 
 # --- DKMS Auto-Rebuild Check ---
 # On Raspberry Pi OS, kernel updates often install the image before the headers.

@@ -1,0 +1,189 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# WM8960 Echo Canceller — Install Script (Raspberry Pi)
+#
+# Two echo cancellation engines available:
+#   webrtc (default) — WebRTC AEC3, ~30dB+ attenuation, requires snd-aloop
+#   speex            — SpeexDSP, ~15dB attenuation, FIFO-based, no snd-aloop needed
+#
+# Usage: sudo bash install.sh [webrtc|speex] [--uninstall]
+
+set -eu
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SERVICE_NAME="wm8960-echo-cancel"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+ALOOP_DKMS_SRC="${SCRIPT_DIR}/../../dkms/snd-aloop"
+
+log() { echo "[EC] $1"; }
+log_error() { echo "[EC] ERROR: $1" >&2; }
+
+if [ "$(id -u)" -ne 0 ]; then
+    log_error "This script must be run as root (sudo)"
+    exit 1
+fi
+
+# Parse arguments
+ENGINE="${1:-webrtc}"
+if [ "$ENGINE" = "--uninstall" ]; then
+    ENGINE="uninstall"
+elif [ "${2:-}" = "--uninstall" ]; then
+    ENGINE="uninstall"
+fi
+
+# --- Uninstall ---
+if [ "$ENGINE" = "--uninstall" ] || [ "$ENGINE" = "uninstall" ]; then
+    log "Uninstalling echo canceller..."
+    systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
+    systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
+    rm -f "${SERVICE_FILE}"
+    rm -f /usr/local/bin/wm8960-ec
+    rm -f /usr/local/bin/wm8960-ec-webrtc
+    rm -f /tmp/ec.input /tmp/ec.output
+    rm -f /etc/alsa/conf.d/50-aec.conf
+    rm -f /etc/modules-load.d/snd-aloop.conf
+    systemctl daemon-reload
+    log "Echo canceller uninstalled"
+    exit 0
+fi
+
+if [ "$ENGINE" != "webrtc" ] && [ "$ENGINE" != "speex" ]; then
+    log_error "Unknown engine '$ENGINE' — use 'webrtc' or 'speex'"
+    echo "Usage: sudo bash install.sh [webrtc|speex] [--uninstall]"
+    exit 1
+fi
+
+log "Installing $ENGINE echo canceller..."
+
+# --- Install dependencies ---
+log "Installing dependencies..."
+apt-get update -qq
+if [ "$ENGINE" = "webrtc" ]; then
+    apt-get install -y -qq libasound2-dev libspeexdsp-dev libwebrtc-audio-processing-dev build-essential pkg-config sox dkms >/dev/null
+else
+    apt-get install -y -qq libasound2-dev libspeexdsp-dev build-essential pkg-config sox >/dev/null
+fi
+
+# --- Load snd-aloop for WebRTC ---
+if [ "$ENGINE" = "webrtc" ]; then
+    if ! lsmod | grep -q snd_aloop; then
+        # Try loading the built-in module first (RPi OS often has CONFIG_SND_ALOOP=m)
+        if modprobe snd-aloop 2>/dev/null; then
+            log "snd-aloop loaded from kernel (built-in module)"
+        elif [ -d "$ALOOP_DKMS_SRC" ]; then
+            log "Built-in snd-aloop not available, building via DKMS..."
+            rm -rf /usr/src/snd-aloop-1.0
+            cp -r "$ALOOP_DKMS_SRC" /usr/src/snd-aloop-1.0
+            dkms remove snd-aloop/1.0 --all 2>/dev/null || true
+            dkms add snd-aloop/1.0
+            dkms install snd-aloop/1.0
+            modprobe snd-aloop || {
+                log_error "Failed to load snd-aloop module"
+                exit 1
+            }
+            log "snd-aloop built and loaded via DKMS"
+        else
+            log_error "snd-aloop not available and DKMS source not found at $ALOOP_DKMS_SRC"
+            exit 1
+        fi
+    else
+        log "snd-aloop already loaded"
+    fi
+    # Persist module across reboots
+    if ! grep -q "^snd-aloop" /etc/modules-load.d/*.conf 2>/dev/null; then
+        echo "snd-aloop" > /etc/modules-load.d/snd-aloop.conf
+    fi
+
+    # Install ALSA AEC config
+    if [ -f "${SCRIPT_DIR}/configs/alsa-aec.conf" ]; then
+        mkdir -p /etc/alsa/conf.d
+        cp "${SCRIPT_DIR}/configs/alsa-aec.conf" /etc/alsa/conf.d/50-aec.conf
+        log "ALSA AEC config installed"
+    fi
+fi
+
+# --- Build ---
+log "Building..."
+cd "${SCRIPT_DIR}"
+make clean >/dev/null 2>&1 || true
+if [ "$ENGINE" = "webrtc" ]; then
+    make webrtc
+else
+    make speex
+fi
+
+# --- Install binary ---
+log "Installing binary..."
+if [ "$ENGINE" = "webrtc" ]; then
+    install -D -m 755 wm8960-ec-webrtc /usr/local/bin/wm8960-ec-webrtc
+else
+    install -D -m 755 wm8960-ec /usr/local/bin/wm8960-ec
+fi
+
+# --- Create systemd service ---
+log "Creating systemd service..."
+if [ "$ENGINE" = "webrtc" ]; then
+    cat > "${SERVICE_FILE}" << 'SVCEOF'
+[Unit]
+Description=WM8960 Echo Cancellation (WebRTC AEC3)
+After=sound.target wm8960-soundcard.service
+Requires=wm8960-soundcard.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/wm8960-ec-webrtc -p plughw:wm8960soundcard,0 -r 48000 -n 1
+Restart=always
+RestartSec=3
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+else
+    cat > "${SERVICE_FILE}" << 'SVCEOF'
+[Unit]
+Description=WM8960 Echo Cancellation (SpeexDSP)
+After=sound.target wm8960-soundcard.service
+Requires=wm8960-soundcard.service
+
+[Service]
+Type=simple
+ExecStartPre=/bin/rm -f /tmp/ec.input /tmp/ec.output
+ExecStart=/usr/local/bin/wm8960-ec -i default -o default -r 48000 -c 1 -d 0 -f 4096
+Restart=always
+RestartSec=3
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+fi
+
+systemctl daemon-reload
+systemctl enable "${SERVICE_NAME}"
+systemctl start "${SERVICE_NAME}"
+
+log ""
+log "Echo canceller ($ENGINE) installed and running!"
+log ""
+if [ "$ENGINE" = "webrtc" ]; then
+    log "Usage:"
+    log "  Play audio:   aplay -D hw:Loopback,0,0 audio.wav"
+    log "  Record clean: arecord -D hw:Loopback,1,1 -r 48000 -c 1 -f S16_LE recording.wav"
+    log ""
+    log "  Or use the 'aec' ALSA device (if alsa-aec.conf is installed):"
+    log "  Play audio:   aplay -D aec audio.wav"
+    log "  Record clean: arecord -D aec -r 48000 -c 1 -f S16_LE recording.wav"
+else
+    log "Usage:"
+    log "  Record echo-cancelled audio:"
+    log "    timeout 5 dd if=/tmp/ec.output of=recording.raw bs=96000"
+    log "    sox -t raw -r 48000 -c 1 -b 16 -e signed recording.raw recording.wav"
+    log ""
+    log "  Play audio through the echo canceller:"
+    log "    cat audio.raw > /tmp/ec.input"
+fi
+log ""
+log "  Check status:  systemctl status ${SERVICE_NAME}"
+log "  Uninstall:     sudo bash install.sh --uninstall"

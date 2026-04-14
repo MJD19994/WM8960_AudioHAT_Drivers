@@ -1,0 +1,129 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-only
+# WM8960 Audio HAT - Diagnostic Dump Script
+# Collects system and driver info for troubleshooting and bug reports
+# Usage: sudo wm8960-diag
+
+# Read installed version
+WM8960_VERSION="unknown"
+if [ -f /etc/wm8960-soundcard/version ]; then
+    WM8960_VERSION="$(cat /etc/wm8960-soundcard/version | tr -d '[:space:]')"
+fi
+
+section() {
+    echo ""
+    echo "=== $1 ==="
+}
+
+# Header
+echo "WM8960 Audio HAT Diagnostic Report"
+echo "Generated: $(date)"
+echo "Driver version: ${WM8960_VERSION}"
+
+section "System Info"
+echo "Hostname: $(hostname)"
+echo "Kernel: $(uname -r)"
+echo "Architecture: $(uname -m)"
+if [ -f /etc/os-release ]; then
+    grep -E "^(PRETTY_NAME|VERSION_ID)=" /etc/os-release
+fi
+
+section "I2C Detection"
+if command -v i2cdetect >/dev/null 2>&1; then
+    if [ "$EUID" -eq 0 ]; then
+        i2cdetect -y 1 0x1a 0x1a 2>/dev/null || echo "(i2cdetect failed)"
+    else
+        echo "(run as root for I2C scan)"
+    fi
+else
+    echo "(i2cdetect not installed)"
+fi
+
+section "Kernel Modules"
+lsmod | grep -E "snd_soc_wm8960|i2c" || echo "(no WM8960 modules loaded)"
+
+section "DKMS Status"
+if command -v dkms >/dev/null 2>&1; then
+    dkms status 2>/dev/null || echo "(dkms status failed)"
+else
+    echo "(dkms not installed)"
+fi
+
+section "Sound Cards"
+cat /proc/asound/cards 2>/dev/null || echo "(no sound cards found)"
+
+section "Playback Devices"
+aplay -l 2>/dev/null || echo "(aplay failed)"
+
+section "Capture Devices"
+arecord -l 2>/dev/null || echo "(arecord failed)"
+
+section "ALSA Configuration"
+if [ -L /etc/asound.conf ]; then
+    echo "/etc/asound.conf -> $(readlink /etc/asound.conf)"
+elif [ -f /etc/asound.conf ]; then
+    echo "/etc/asound.conf (regular file)"
+else
+    echo "/etc/asound.conf (not found)"
+fi
+if [ -L /var/lib/alsa/asound.state ]; then
+    echo "/var/lib/alsa/asound.state -> $(readlink /var/lib/alsa/asound.state)"
+elif [ -f /var/lib/alsa/asound.state ]; then
+    echo "/var/lib/alsa/asound.state (regular file)"
+else
+    echo "/var/lib/alsa/asound.state (not found)"
+fi
+ls -la /etc/wm8960-soundcard/ 2>/dev/null || echo "/etc/wm8960-soundcard/ (not found)"
+
+section "Systemd Service"
+systemctl status wm8960-soundcard.service --no-pager 2>/dev/null || echo "(service not found)"
+
+section "Service Log (last 30 lines)"
+if [ -f /var/log/wm8960-soundcard.log ]; then
+    if [ "$EUID" -eq 0 ]; then
+        tail -30 /var/log/wm8960-soundcard.log
+    else
+        tail -30 /var/log/wm8960-soundcard.log 2>/dev/null || echo "(run as root to read log)"
+    fi
+else
+    echo "(log file not found)"
+fi
+
+section "Config.txt (WM8960-related)"
+for cfg in /boot/firmware/config.txt /boot/config.txt; do
+    if [ -f "$cfg" ]; then
+        echo "File: $cfg"
+        grep -nE "i2c_arm|i2s|wm8960|snd" "$cfg" 2>/dev/null || echo "(no WM8960 entries)"
+        break
+    fi
+done
+
+section "Device Tree Overlays"
+if [ "$EUID" -eq 0 ]; then
+    dtoverlay -l 2>/dev/null || echo "(dtoverlay command not available)"
+else
+    echo "(run as root for overlay list)"
+fi
+
+section "dmesg (WM8960-related)"
+if [ "$EUID" -eq 0 ]; then
+    dmesg | grep -i "wm8960\|asoc\|soundcard" | tail -20 || echo "(no WM8960 messages)"
+else
+    dmesg 2>/dev/null | grep -i "wm8960\|asoc\|soundcard" | tail -20 || echo "(run as root for dmesg)"
+fi
+
+section "Audio Server"
+if command -v wpctl >/dev/null 2>&1 && wpctl status >/dev/null 2>&1; then
+    echo "PipeWire/WirePlumber detected"
+    wpctl status 2>/dev/null | head -20
+elif command -v pactl >/dev/null 2>&1; then
+    echo "PulseAudio detected"
+    pactl info 2>/dev/null | grep -E "Server|Default Sink|Default Source" || true
+else
+    echo "ALSA only (no PipeWire or PulseAudio)"
+fi
+
+echo ""
+echo "=== End of Diagnostic Report ==="
+echo "Paste this output into a GitHub issue at:"
+echo "  https://github.com/MJD19994/WM8960_AudioHAT_Drivers/issues"

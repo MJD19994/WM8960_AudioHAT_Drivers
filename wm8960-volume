@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-only
 # WM8960 Audio HAT - Volume Preset Utility
 # Sets mixer controls to tested, known-good values for different use cases
 # Usage: sudo wm8960-volume <preset>
@@ -227,8 +228,13 @@ show_levels() {
 
 # ---------- Main ----------
 
+WM8960_VERSION="unknown"
+if [ -f /etc/wm8960-soundcard/version ]; then
+    WM8960_VERSION="$(cat /etc/wm8960-soundcard/version | tr -d '[:space:]')"
+fi
+
 usage() {
-    echo "WM8960 Audio HAT - Volume Preset Utility"
+    echo "WM8960 Audio HAT - Volume Preset Utility (v${WM8960_VERSION})"
     echo ""
     echo "Usage: sudo wm8960-volume <preset>"
     echo ""
