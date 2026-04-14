@@ -33,7 +33,7 @@ static const char *usage_text =
     " -i PCM    app input loopback  (hw:Loopback,1,0)\n"
     " -o PCM    app output loopback (hw:Loopback,0,1)\n"
     " -m PCM    mic capture device  (dsnooper)\n"
-    " -p PCM    speaker output      (plughw:ahub0wm8960,0)\n"
+    " -p PCM    speaker output      (plughw:wm8960soundcard,0)\n"
     "\n"
     "Audio processing:\n"
     " -r rate   sample rate: 16000, 32000, or 48000 (48000)\n"
