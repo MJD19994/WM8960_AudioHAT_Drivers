@@ -25,15 +25,18 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Parse arguments
-ENGINE="${1:-webrtc}"
-if [ "$ENGINE" = "--uninstall" ]; then
-    ENGINE="uninstall"
-elif [ "${2:-}" = "--uninstall" ]; then
-    ENGINE="uninstall"
-fi
+UNINSTALL=0
+ENGINE="webrtc"
+for arg in "$@"; do
+    case "$arg" in
+        --uninstall) UNINSTALL=1 ;;
+        webrtc|speex) ENGINE="$arg" ;;
+        *) log_error "Unknown argument: $arg"; echo "Usage: sudo bash install.sh [webrtc|speex] [--uninstall]"; exit 1 ;;
+    esac
+done
 
 # --- Uninstall ---
-if [ "$ENGINE" = "--uninstall" ] || [ "$ENGINE" = "uninstall" ]; then
+if [ "$UNINSTALL" -eq 1 ]; then
     log "Uninstalling echo canceller..."
     systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
     systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
@@ -46,12 +49,6 @@ if [ "$ENGINE" = "--uninstall" ] || [ "$ENGINE" = "uninstall" ]; then
     systemctl daemon-reload
     log "Echo canceller uninstalled"
     exit 0
-fi
-
-if [ "$ENGINE" != "webrtc" ] && [ "$ENGINE" != "speex" ]; then
-    log_error "Unknown engine '$ENGINE' — use 'webrtc' or 'speex'"
-    echo "Usage: sudo bash install.sh [webrtc|speex] [--uninstall]"
-    exit 1
 fi
 
 log "Installing $ENGINE echo canceller..."

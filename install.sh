@@ -37,7 +37,7 @@ for arg in "$@"; do
             echo "Options:"
             echo "  --skip-pipewire     Skip PipeWire/WirePlumber configuration"
             echo "  --skip-pulseaudio   Skip PulseAudio configuration"
-            echo "  --yes, -y           Auto-confirm all prompts (kernel warning, reboot)"
+            echo "  --yes, -y           Auto-confirm prompts (kernel warning) and skip reboot"
             echo "  --help, -h          Show this help message"
             echo ""
             echo "By default, the installer detects PipeWire and PulseAudio automatically"
@@ -668,8 +668,7 @@ echo ""
 echo "For detailed troubleshooting, see the README.md file."
 echo ""
 if [ "$AUTO_YES" -eq 1 ]; then
-    echo "Auto-confirmed (--yes): rebooting..."
-    reboot
+    echo "Auto-confirmed (--yes): please reboot manually when ready: sudo reboot"
 elif [ -t 0 ]; then
     echo "Reboot now? (y/n)"
     read -r response
