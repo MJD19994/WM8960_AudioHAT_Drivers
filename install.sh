@@ -343,9 +343,9 @@ echo "Step 7/13: Configuring I2S interface in $CONFIG_FILE..."
 
 # Remove old dtparam=i2s=on if present in [all] section
 if in_all_section "^[[:space:]]*dtparam=i2s=on"; then
-    local_line=$(line_in_all_section "^[[:space:]]*dtparam=i2s=on")
-    if [ -n "$local_line" ]; then
-        if ! sed -i "${local_line}s/^[[:space:]]*dtparam=i2s=on.*/# dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap # wm8960-managed/" "$CONFIG_FILE"; then
+    i2s_line=$(line_in_all_section "^[[:space:]]*dtparam=i2s=on")
+    if [ -n "$i2s_line" ]; then
+        if ! sed -i "${i2s_line}s/^[[:space:]]*dtparam=i2s=on.*/# dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap # wm8960-managed/" "$CONFIG_FILE"; then
             echo "ERROR: Failed to comment out dtparam=i2s=on in config.txt"
             exit 1
         fi

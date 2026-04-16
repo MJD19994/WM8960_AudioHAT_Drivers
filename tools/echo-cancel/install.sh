@@ -147,7 +147,7 @@ Requires=wm8960-soundcard.service
 [Service]
 Type=simple
 ExecStartPre=/bin/rm -f /tmp/ec.input /tmp/ec.output
-ExecStart=/usr/local/bin/wm8960-ec -i default -o default -r 48000 -c 1 -d 0 -f 4096
+ExecStart=/usr/local/bin/wm8960-ec -i plughw:wm8960soundcard,0 -o plughw:wm8960soundcard,0 -r 48000 -c 1 -d 0 -f 4096
 Restart=always
 RestartSec=3
 TimeoutStartSec=30

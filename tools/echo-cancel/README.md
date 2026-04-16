@@ -86,13 +86,31 @@ sox input.wav -r 48000 -c 1 -b 16 -e signed -t raw - > /tmp/ec.input
 ### WebRTC Tuning Flags
 
 ```text
+-r rate   Sample rate: 16000, 32000, or 48000 (default: 48000)
 -n level  Noise suppression: 0=off 1=low 2=mod 3=high 4=vhigh (default: 1)
 -g        Enable automatic gain control
 -M        Mobile mode (AECM — lighter CPU, less cancellation)
 -H        Disable high-pass filter
 -d ms     Stream delay hint in ms (default: 0)
--r rate   Sample rate: 16000, 32000, or 48000 (default: 48000)
+-s        Save debug audio to /tmp/{recording,playback,out}.raw
+-D        Daemonize
 ```
+
+### SpeexDSP Tuning Flags
+
+```text
+-i PCM            Playback PCM device (default: default)
+-o PCM            Capture PCM device (default: default)
+-r rate           Sample rate (default: 16000)
+-c channels       Recording channels (default: 2)
+-b size           Ring buffer size in bytes (default: 262144)
+-d delay          System delay between playback and capture in frames (default: 0)
+-f filter_length  AEC filter length in samples (default: 2048)
+-s                Save debug audio to /tmp/{recording,playback,out}.raw
+-D                Daemonize
+```
+
+Audio I/O is through named pipes: `/tmp/ec.input` (playback) and `/tmp/ec.output` (recording). Only mono playback is supported.
 
 ### Service Management
 
