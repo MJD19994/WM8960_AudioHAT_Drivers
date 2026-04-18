@@ -9,7 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Read version from VERSION file
 if [ -f "$SCRIPT_DIR/VERSION" ]; then
     WM8960_VERSION="$(tr -d '[:space:]' < "$SCRIPT_DIR/VERSION")"
-else
+fi
+if [ -z "${WM8960_VERSION:-}" ]; then
     WM8960_VERSION="unknown"
 fi
 
@@ -414,13 +415,8 @@ else
 fi
 
 # Write installed version
-if [ -f "$SCRIPT_DIR/VERSION" ]; then
-    cp "$SCRIPT_DIR/VERSION" /etc/wm8960-soundcard/version
-    echo "Version $(cat /etc/wm8960-soundcard/version) installed"
-else
-    echo "unknown" > /etc/wm8960-soundcard/version
-    echo "Warning: VERSION file not found, version set to 'unknown'"
-fi
+printf '%s\n' "$WM8960_VERSION" > /etc/wm8960-soundcard/version
+echo "Version ${WM8960_VERSION} installed"
 
 # --- PipeWire / WirePlumber configuration (conditional) ---
 if [ "$SKIP_PIPEWIRE" -eq 1 ]; then
