@@ -108,12 +108,14 @@ echo "Log file and logrotate config removed"
 
 echo ""
 echo "Step 8/11: Removing DKMS kernel module..."
+dkms_still_registered=0
 if dkms status | grep -q "wm8960-soundcard"; then
     dkms remove wm8960-soundcard/1.0 --all || echo "Warning: DKMS removal returned an error (continuing uninstall)"
     # Verify removal was successful
     if ! dkms status | grep -q "wm8960-soundcard"; then
         echo "DKMS package successfully removed"
     else
+        dkms_still_registered=1
         echo "Warning: DKMS package may still be partially installed"
     fi
 else
@@ -122,8 +124,12 @@ fi
 
 echo ""
 echo "Step 9/11: Removing DKMS source files..."
-rm -rf /usr/src/wm8960-soundcard-1.0
-echo "DKMS source files removed"
+if [ "$dkms_still_registered" -eq 1 ]; then
+    echo "Skipping DKMS source removal because DKMS package is still registered"
+else
+    rm -rf /usr/src/wm8960-soundcard-1.0
+    echo "DKMS source files removed"
+fi
 
 echo ""
 echo "Step 10/11: Removing device tree overlay..."

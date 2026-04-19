@@ -7,7 +7,10 @@
 # Read installed version
 WM8960_VERSION="unknown"
 if [ -f /etc/wm8960-soundcard/version ]; then
-    WM8960_VERSION="$(tr -d '[:space:]' < /etc/wm8960-soundcard/version)"
+    _version="$(tr -d '[:space:]' < /etc/wm8960-soundcard/version)"
+    if [ -n "$_version" ]; then
+        WM8960_VERSION="$_version"
+    fi
 fi
 
 section() {
@@ -106,10 +109,13 @@ else
 fi
 
 section "dmesg (WM8960-related)"
-if [ "$EUID" -eq 0 ]; then
-    dmesg | grep -i "wm8960\|asoc\|soundcard" | tail -20 || echo "(no WM8960 messages)"
+dmesg_out="$(dmesg 2>/dev/null | grep -i "wm8960\|asoc\|soundcard" | tail -20)"
+if [ -n "$dmesg_out" ]; then
+    printf '%s\n' "$dmesg_out"
+elif [ "$EUID" -ne 0 ] && ! dmesg >/dev/null 2>&1; then
+    echo "(run as root for dmesg)"
 else
-    dmesg 2>/dev/null | grep -i "wm8960\|asoc\|soundcard" | tail -20 || echo "(run as root for dmesg)"
+    echo "(no WM8960 messages)"
 fi
 
 section "Audio Server"
