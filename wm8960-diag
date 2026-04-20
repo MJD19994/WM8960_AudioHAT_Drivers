@@ -122,14 +122,18 @@ section "Audio Server"
 if command -v wpctl >/dev/null 2>&1 && wpctl status >/dev/null 2>&1; then
     echo "PipeWire/WirePlumber detected"
     wpctl status 2>/dev/null | head -20
-elif command -v pactl >/dev/null 2>&1; then
+elif command -v pactl >/dev/null 2>&1 && pactl info >/dev/null 2>&1; then
     echo "PulseAudio detected"
     pactl info 2>/dev/null | grep -E "Server|Default Sink|Default Source" || true
+elif command -v pactl >/dev/null 2>&1; then
+    echo "PulseAudio client installed but server not running"
 else
     echo "ALSA only (no PipeWire or PulseAudio)"
 fi
 
 echo ""
 echo "=== End of Diagnostic Report ==="
+echo "Review and redact any sensitive hostnames, serial numbers, usernames, paths,"
+echo "local network details, or private log lines before posting publicly."
 echo "Paste this output into a GitHub issue at:"
 echo "  https://github.com/MJD19994/WM8960_AudioHAT_Drivers/issues"

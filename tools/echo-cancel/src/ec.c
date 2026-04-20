@@ -9,12 +9,29 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <time.h>
+#include <limits.h>
 #include <sys/stat.h>
 
 #include <speex/speex_echo.h>
 
 #include "conf.h"
 #include "audio.h"
+
+// Parse a non-negative integer from optarg; abort on garbage, negatives, or
+// values above UINT_MAX (which would silently truncate when callers cast to
+// unsigned). atoi silently turns "-1" into a huge unsigned and "abc" into 0.
+static unsigned parse_nonneg(const char *s, const char *name)
+{
+    char *end;
+    errno = 0;
+    long v = strtol(s, &end, 10);
+    if (errno != 0 || end == s || *end != '\0' || v < 0 || v > UINT_MAX) {
+        fprintf(stderr, "Invalid value for -%s: '%s' (must be 0..%u)\n", name, s, UINT_MAX);
+        exit(1);
+    }
+    return (unsigned)v;
+}
 
 const char *usage =
     "Usage:\n %s [options]\n"
@@ -86,20 +103,20 @@ int main(int argc, char *argv[])
         switch (opt)
         {
         case 'b':
-            config.buffer_size = atoi(optarg);
+            config.buffer_size = parse_nonneg(optarg, "b");
             break;
         case 'c':
-            config.rec_channels = atoi(optarg);
+            config.rec_channels = parse_nonneg(optarg, "c");
             config.out_channels = config.rec_channels;
             break;
         case 'd':
-            delay = atoi(optarg);
+            delay = (int)parse_nonneg(optarg, "d");
             break;
         case 'D':
             daemonize = 1;
             break;
         case 'f':
-            config.filter_length = atoi(optarg);
+            config.filter_length = parse_nonneg(optarg, "f");
             break;
         case 'h':
             printf(usage, argv[0]);
@@ -111,7 +128,7 @@ int main(int argc, char *argv[])
             config.out_pcm = optarg;
             break;
         case 'r':
-            config.rate = atoi(optarg);
+            config.rate = parse_nonneg(optarg, "r");
             break;
         case 's':
             save_audio = 1;
@@ -265,10 +282,17 @@ int main(int argc, char *argv[])
     int skipped = capture_skip(delay, timeout);
     printf("skip frames %d\n", skipped);
 
+    time_t last_short_warn = 0;
+    unsigned int short_write_count = 0;
+
     while (!g_is_quit)
     {
-        if (capture_read(rec, frame_size, timeout) < 0)
+        if (capture_read(rec, frame_size, timeout) < 0) {
+            // Drain one playback frame even on capture stall so the playback
+            // ringbuffer doesn't monotonically grow and drift far/rec alignment.
+            (void)playback_read(far, frame_size, timeout);
             continue;
+        }
         if (playback_read(far, frame_size, timeout) < 0)
             memset(far, 0, frame_size * config.ref_channels * sizeof(int16_t));
 
@@ -281,17 +305,29 @@ int main(int argc, char *argv[])
             memcpy(out, rec, frame_size * config.rec_channels * config.bits_per_sample / 8);
         }
 
-        if (fp_far)
+        if (save_audio)
         {
             fwrite(rec, 2, frame_size * config.rec_channels, fp_rec);
-            fwrite(far, 2, frame_size, fp_far);
+            fwrite(far, 2, frame_size * config.ref_channels, fp_far);
             fwrite(out, 2, frame_size * config.out_channels, fp_out);
         }
 
-        fifo_write(out, frame_size);
+        int written = fifo_write(out, frame_size);
+        if (written < (int)frame_size) {
+            // Ring-buffer overrun — FIFO reader is too slow. Log rate-limited
+            // (every 5s) so the drop is observable during tuning without spam.
+            short_write_count += (frame_size - written);
+            time_t now = time(NULL);
+            if (now - last_short_warn >= 5) {
+                fprintf(stderr, "fifo_write: %u frames dropped in last 5s (reader too slow?)\n",
+                        short_write_count);
+                last_short_warn = now;
+                short_write_count = 0;
+            }
+        }
     }
 
-    if (fp_far)
+    if (save_audio)
     {
         fclose(fp_rec);
         fclose(fp_far);
