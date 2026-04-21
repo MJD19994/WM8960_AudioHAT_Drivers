@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: MIT
 # WM8960 Audio HAT - Diagnostic Dump Script
 # Collects system and driver info for troubleshooting and bug reports
 # Usage: sudo wm8960-diag

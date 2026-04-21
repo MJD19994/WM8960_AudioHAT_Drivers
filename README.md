@@ -1,4 +1,17 @@
-# WM8960 AudioHAT Drivers
+# WM8960 Audio HAT Drivers for Raspberry Pi
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/MJD19994/WM8960_AudioHAT_Drivers)](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/releases)
+[![CI](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/actions/workflows/ci.yml/badge.svg)](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/actions/workflows/ci.yml)
+![Raspberry Pi OS](https://img.shields.io/badge/Raspberry%20Pi%20OS-Trixie-success?style=flat-square)
+![Kernel 6.12](https://img.shields.io/badge/kernel-6.12%20validated-2ea44f?style=flat-square)
+![DKMS](https://img.shields.io/badge/DKMS-supported-yellow?style=flat-square)
+![ALSA](https://img.shields.io/badge/ALSA-integrated-blue?style=flat-square)
+![PulseAudio](https://img.shields.io/badge/PulseAudio-supported-blue?style=flat-square)
+![PipeWire](https://img.shields.io/badge/PipeWire-supported-blue?style=flat-square)
+![ReSpeaker](https://img.shields.io/badge/ReSpeaker%202--Mic-compatible-1f6feb?style=flat-square)
+![Waveshare](https://img.shields.io/badge/Waveshare%20WM8960-compatible-1f6feb?style=flat-square)
+![Seeed Studio](https://img.shields.io/badge/Seeed%20Studio-compatible-1f6feb?style=flat-square)
 
 ## Overview
 This repository contains drivers and configuration for the WM8960 Audio HAT for Raspberry Pi. The WM8960 is a low power stereo codec featuring Class D speaker drivers to reduce external component count and provide high quality audio output.
@@ -570,6 +583,8 @@ sudo wm8960-volume reset
 
 **Note:** After switching presets, you can save the new settings with `sudo alsactl store` to make them persist across reboots.
 
+For a full reference of the WM8960's ALSA mixer controls (useful for custom tuning or Wyoming/Rhasspy voice assistant setups), see [docs/ALSA-Mixer-Controls.md](docs/ALSA-Mixer-Controls.md).
+
 ## Saving Audio Settings
 
 ### Default Behavior: Manual Save
@@ -807,7 +822,7 @@ sudo systemctl restart wm8960-soundcard.service
 5. Ensure adequate power supply (quality USB power adapter)
 6. Ensure system is up to date: `sudo apt update && sudo apt upgrade`
 
-For additional troubleshooting information, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+For additional troubleshooting information, see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
 ## Uninstallation
 
@@ -871,7 +886,17 @@ After rebooting, verify the removal:
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This repository contains code under three licenses, reflecting the origin of each component. The split is permitted under the GPL's aggregation clause because the components are separate binaries that never combine into a single program.
+
+| Component | License | Why |
+|-----------|---------|-----|
+| Scripts, configs, overlays, service files, docs, and all files at the repo root | **MIT** — see [LICENSE](LICENSE) | Original work, kept permissive for maximum reuse |
+| [`kernel_module/`](kernel_module/) — DKMS kernel module source | **GPL-2.0-only** | Derived from the mainline Linux kernel `wm8960.c` codec driver (Copyright 2007–2011 Wolfson Microelectronics); kernel modules inherit the kernel's license |
+| [`tools/echo-cancel/`](tools/echo-cancel/) — optional echo canceller | **GPLv3** — see [tools/echo-cancel/LICENSE-GPL3](tools/echo-cancel/LICENSE-GPL3) | SpeexDSP engine inherits GPLv3 from [voice-engine/ec](https://github.com/voice-engine/ec); WebRTC engine is GPLv3 by our choice for consistency. The vendored PortAudio ring buffer (`pa_ringbuffer.*`, `pa_memorybarrier.h`) retains its original BSD-style license — see file headers. |
+
+If you only use the audio driver, you're working with MIT + GPL-2.0-only (standard kernel-module licensing). If you additionally install the echo canceller, GPLv3 applies to that binary only.
+
+For per-file details, compatibility notes, and downstream-user guidance, see [docs/LICENSING.md](docs/LICENSING.md).
 
 ## Support
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: MIT
 
 set -e
 
@@ -342,11 +342,19 @@ echo "Step 7/13: Configuring I2S interface in $CONFIG_FILE..."
 # Note: In rare cases, this may conflict with custom audio setups
 # If you experience audio issues after installation, try commenting out dtoverlay=i2s-mmap in config.txt
 
-# Remove old dtparam=i2s=on if present in [all] section
+# Remove old dtparam=i2s=on if present in [all] section.
+# Only tag as wm8960-managed if we added it ourselves; otherwise preserve the
+# user's original value in commented form so uninstall can restore it manually.
 if in_all_section "^[[:space:]]*dtparam=i2s=on"; then
     i2s_line=$(line_in_all_section "^[[:space:]]*dtparam=i2s=on")
     if [ -n "$i2s_line" ]; then
-        if ! sed -i "${i2s_line}s/^[[:space:]]*dtparam=i2s=on.*/# dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap # wm8960-managed/" "$CONFIG_FILE"; then
+        i2s_text=$(sed -n "${i2s_line}p" "$CONFIG_FILE")
+        if [[ "$i2s_text" == *"wm8960-managed"* ]]; then
+            replacement="# dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap # wm8960-managed"
+        else
+            replacement="# ${i2s_text}  # Disabled by WM8960 installer; remove leading '# ' to restore"
+        fi
+        if ! sed -i "${i2s_line}c\\${replacement}" "$CONFIG_FILE"; then
             echo "ERROR: Failed to comment out dtparam=i2s=on in config.txt"
             exit 1
         fi

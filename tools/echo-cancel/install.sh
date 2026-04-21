@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # WM8960 Echo Canceller — Install Script (Raspberry Pi)
 #
@@ -52,6 +52,11 @@ if [ "$UNINSTALL" -eq 1 ]; then
         rm -f /etc/modules-load.d/wm8960-snd-aloop.conf
     fi
     rm -f /etc/modules-load.d/snd-aloop.conf  # clean up legacy name
+    # Unregister snd-aloop DKMS if we registered it (built-in kernel module is unaffected)
+    if command -v dkms >/dev/null 2>&1 && dkms status snd-aloop/1.0 2>/dev/null | grep -q .; then
+        dkms remove snd-aloop/1.0 --all 2>/dev/null || true
+    fi
+    rm -rf /usr/src/snd-aloop-1.0
     systemctl daemon-reload
     log "Echo canceller uninstalled"
     exit 0
@@ -180,10 +185,6 @@ if [ "$ENGINE" = "webrtc" ]; then
     log "Usage:"
     log "  Play audio:   aplay -D hw:Loopback,0,0 audio.wav"
     log "  Record clean: arecord -D hw:Loopback,1,1 -r 48000 -c 1 -f S16_LE recording.wav"
-    log ""
-    log "  Or use the 'aec' ALSA device (if alsa-aec.conf is installed):"
-    log "  Play audio:   aplay -D aec audio.wav"
-    log "  Record clean: arecord -D aec -r 48000 -c 1 -f S16_LE recording.wav"
 else
     log "Usage:"
     log "  Record echo-cancelled audio:"

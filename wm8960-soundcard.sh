@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: MIT
 # WM8960 Soundcard Service Script
 # This script dynamically loads the WM8960 overlay after detecting the I2C codec
 # It runs on boot via systemd service and ensures proper initialization order

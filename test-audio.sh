@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: MIT
 # WM8960 Audio HAT - Post-Installation Audio Test Script
 # Runs automated and interactive checks to verify the audio system is working
 # Usage: sudo bash test-audio.sh [--quick]
@@ -252,7 +252,7 @@ else
     echo "Some tests failed. For troubleshooting:"
     echo "  - Check service status: sudo systemctl status wm8960-soundcard.service"
     echo "  - Check service logs:   sudo cat /var/log/wm8960-soundcard.log"
-    echo "  - See TROUBLESHOOTING.md for detailed guidance"
+    echo "  - See docs/TROUBLESHOOTING.md for detailed guidance"
 fi
 
 exit "$tests_failed"

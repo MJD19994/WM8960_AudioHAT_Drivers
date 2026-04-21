@@ -67,11 +67,7 @@ Configure your voice assistant to use:
 - **Playback device:** `hw:Loopback,0,0`
 - **Capture device:** `hw:Loopback,1,1`
 
-Or, if the ALSA AEC config is installed (automatic with WebRTC), use the `aec` virtual device:
-```bash
-aplay -D aec music.wav
-arecord -D aec -r 48000 -c 1 -f S16_LE -d 5 recording.wav
-```
+> **Note:** The `aec` virtual ALSA device defined in `configs/alsa-aec.conf` is **not compatible** with the default WebRTC service. The default service runs the EC binary in raw loopback-router mode (it writes directly to the speaker via `-p plughw:wm8960soundcard,0`), while the `aec` device routes playback to both the speaker AND the loopback simultaneously — using `aplay -D aec` would cause duplicate playback. The `aec` device is provided for advanced users running the EC binary in a different mode (without the `-p` flag). Stick to `hw:Loopback,0,0` / `hw:Loopback,1,1` unless you know what you're doing.
 
 ### SpeexDSP
 
@@ -143,6 +139,7 @@ Drop-in echo cancellation configs are provided in `configs/`:
 
 - **PipeWire:** `configs/pipewire-echo-cancel.conf`
   ```bash
+  sudo mkdir -p /etc/pipewire/pipewire.conf.d
   sudo cp configs/pipewire-echo-cancel.conf /etc/pipewire/pipewire.conf.d/20-echo-cancel.conf
   systemctl --user restart pipewire
   ```

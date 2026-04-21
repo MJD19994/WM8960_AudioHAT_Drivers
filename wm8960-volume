@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: MIT
 # WM8960 Audio HAT - Volume Preset Utility
 # Sets mixer controls to tested, known-good values for different use cases
 # Usage: sudo wm8960-volume <preset>
