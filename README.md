@@ -259,7 +259,7 @@ Common issues are documented in **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING
 
 ## License
 
-This repository contains code under three licenses, reflecting the origin of each component. The split is permitted under the GPL's aggregation clause because the components are separate binaries that never combine into a single program.
+This repository contains code under three licenses, reflecting the origin of each component. These components are distributed separately (see [docs/LICENSING.md](docs/LICENSING.md) for details). If you are redistributing combined artifacts, review license obligations for your specific distribution model.
 
 | Component | License | Why |
 |-----------|---------|-----|

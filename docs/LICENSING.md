@@ -25,4 +25,4 @@ This document expands on the [License section in the README](../README.md#licens
 
 - If you are only using the audio driver, you are working with MIT (repo glue) + GPL-2.0-only (kernel module). Standard kernel-module licensing applies.
 - If you additionally install the echo canceller, the GPLv3 terms in [`tools/echo-cancel/LICENSE-GPL3`](../tools/echo-cancel/LICENSE-GPL3) apply to that binary and any modifications you make to files in that directory.
-- The three licenses do not "infect" each other because the components are not combined into a single program.
+- As distributed, the three components are separate binaries with separate build systems. If you plan to combine, statically link, or redistribute these components as a single work, review your specific license obligations (and consult legal counsel if needed) — this document is informational, not legal advice.
