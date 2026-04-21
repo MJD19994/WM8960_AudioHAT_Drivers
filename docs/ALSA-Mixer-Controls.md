@@ -9,6 +9,98 @@ This document provides a comprehensive overview of all WM8960 ALSA controls avai
 - ALSA mixer controls are accessible from CLI and Python (e.g., using `pyalsaaudio` or subprocess calls).
 
 ---
+## Inspecting Controls with `amixer`
+
+```bash
+# List every control on the WM8960 card
+amixer -c wm8960soundcard scontrols
+
+# Show everything (controls + current values) — verbose but complete
+amixer -c wm8960soundcard
+
+# Read a single control
+amixer -c wm8960soundcard sget 'Playback Volume'
+amixer -c wm8960soundcard sget 'Capture Volume'
+
+# Short summary of all card information (capabilities, rates, formats)
+amixer -c wm8960soundcard info
+```
+
+**Tip:** Always pass `-c wm8960soundcard` (or `-c <card-index>`) to `amixer`. Without it, `amixer` operates on the default card, which may not be the WM8960 if you have multiple audio devices.
+
+## Setting Controls
+
+```bash
+# Set a volume by percentage
+amixer -c wm8960soundcard sset 'Playback Volume' 80%
+amixer -c wm8960soundcard sset 'Speaker Playback Volume' 100%
+amixer -c wm8960soundcard sset 'Headphone Playback Volume' 75%
+amixer -c wm8960soundcard sset 'Capture Volume' 60%
+
+# Set by absolute value (check range with sget first)
+amixer -c wm8960soundcard sset 'Playback Volume' 200
+
+# Set in dB (prefix with 'dB')
+amixer -c wm8960soundcard sset 'Playback Volume' -6.0dB
+
+# Relative adjustments
+amixer -c wm8960soundcard sset 'Playback Volume' 5%+   # up 5%
+amixer -c wm8960soundcard sset 'Playback Volume' 5%-   # down 5%
+
+# Toggle mute
+amixer -c wm8960soundcard sset 'Speaker Playback Switch' toggle
+
+# Unmute specifically
+amixer -c wm8960soundcard sset 'Speaker Playback Switch' on
+amixer -c wm8960soundcard sset 'Headphone Playback Switch' on
+
+# Switch-type controls (on/off)
+amixer -c wm8960soundcard sset 'Left Input Mixer Boost Switch' on
+amixer -c wm8960soundcard sset 'Noise Gate Switch' on
+amixer -c wm8960soundcard sset 'ADC High Pass Filter Switch' on
+
+# Enum-type controls
+amixer -c wm8960soundcard sset 'ALC Function' Stereo
+amixer -c wm8960soundcard sset 'ALC Mode' Limiter
+```
+
+## Saving and Restoring Mixer State
+
+```bash
+# Save current state to default location
+sudo alsactl store
+
+# Save to a specific file
+sudo alsactl store -f ~/my-wm8960-settings.state wm8960soundcard
+
+# Restore from default location (happens automatically at boot via the service)
+sudo alsactl restore
+
+# Restore from a specific file
+sudo alsactl restore -f ~/my-wm8960-settings.state
+
+# Reset to shipped factory defaults
+sudo wm8960-volume reset
+```
+
+## Scripting Mixer Changes
+
+Common patterns when wrapping these in a script:
+
+```bash
+# Check if a control exists before setting it (avoids errors on unsupported cards)
+if amixer -c wm8960soundcard sget 'Noise Gate Switch' >/dev/null 2>&1; then
+    amixer -c wm8960soundcard sset 'Noise Gate Switch' on
+fi
+
+# Get just the percentage value of a control (useful for status bars)
+amixer -c wm8960soundcard sget 'Playback Volume' | grep -oE '[0-9]+%' | head -1
+
+# Capture whether a switch is on or off
+state=$(amixer -c wm8960soundcard sget 'Speaker Playback Switch' | grep -oE '\[on\]|\[off\]' | head -1)
+```
+
+---
 ## Essential Audio Controls
 
 ### Playback
