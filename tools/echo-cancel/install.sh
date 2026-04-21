@@ -47,11 +47,15 @@ if [ "$UNINSTALL" -eq 1 ]; then
     if grep -q "wm8960-managed" /etc/alsa/conf.d/50-wm8960-aec.conf 2>/dev/null; then
         rm -f /etc/alsa/conf.d/50-wm8960-aec.conf
     fi
-    rm -f /etc/alsa/conf.d/50-aec.conf  # clean up legacy name
+    if grep -q "wm8960-managed" /etc/alsa/conf.d/50-aec.conf 2>/dev/null; then
+        rm -f /etc/alsa/conf.d/50-aec.conf  # clean up legacy name (only if we own it)
+    fi
     if grep -q "wm8960-managed" /etc/modules-load.d/wm8960-snd-aloop.conf 2>/dev/null; then
         rm -f /etc/modules-load.d/wm8960-snd-aloop.conf
     fi
-    rm -f /etc/modules-load.d/snd-aloop.conf  # clean up legacy name
+    if grep -q "wm8960-managed" /etc/modules-load.d/snd-aloop.conf 2>/dev/null; then
+        rm -f /etc/modules-load.d/snd-aloop.conf  # clean up legacy name (only if we own it)
+    fi
     # Unregister snd-aloop DKMS if we registered it (built-in kernel module is unaffected)
     if command -v dkms >/dev/null 2>&1 && dkms status snd-aloop/1.0 2>/dev/null | grep -q .; then
         dkms remove snd-aloop/1.0 --all 2>/dev/null || true

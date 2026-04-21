@@ -95,8 +95,8 @@ sox input.wav -r 48000 -c 1 -b 16 -e signed -t raw - > /tmp/ec.input
 ### SpeexDSP Tuning Flags
 
 ```text
--i PCM            Playback PCM device (default: default)
--o PCM            Capture PCM device (default: default)
+-i PCM            Capture PCM device (default: default)
+-o PCM            Playback PCM device (default: default)
 -r rate           Sample rate (default: 16000)
 -c channels       Recording channels (default: 2)
 -b size           Ring buffer size in bytes (default: 262144)
@@ -171,6 +171,6 @@ sudo bash install.sh --uninstall
 
 ## License
 
-GPL-2.0-only. SpeexDSP engine based on [voice-engine/ec](https://github.com/voice-engine/ec).
+The echo-cancel tools are GPLv3/GPL-3.0-family; see [../../docs/LICENSING.md](../../docs/LICENSING.md) and [LICENSE-GPL3](LICENSE-GPL3) for the authoritative per-component breakdown. The SpeexDSP engine is based on [voice-engine/ec](https://github.com/voice-engine/ec).
 
 The PortAudio ring buffer (`pa_ringbuffer.c`, `pa_ringbuffer.h`, `pa_memorybarrier.h`) is vendored from [PortAudio](http://www.portaudio.com) under a BSD-style license — see the file headers for details.
