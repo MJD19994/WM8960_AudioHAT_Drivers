@@ -7,8 +7,11 @@ This document provides a comprehensive troubleshooting guide for common issues w
 Before diving into specific issues, run the diagnostic tools:
 
 ```bash
-# Automated 10-check test suite
+# 8 automated checks (skips interactive speaker/mic tests — good for CI/headless)
 sudo bash test-audio.sh --quick
+
+# Full 10-check test (adds interactive speaker and mic verification)
+sudo bash test-audio.sh
 
 # Full system diagnostic dump (paste into GitHub issues)
 sudo wm8960-diag
@@ -297,8 +300,8 @@ sudo systemctl restart wm8960-soundcard.service
 
 ## 12. General Tips
 
-- Run `sudo bash test-audio.sh` for an automated 10-check diagnostic
-- Use `sudo bash test-audio.sh --quick` for non-interactive CI/headless testing
+- Run `sudo bash test-audio.sh` for the full 10-check diagnostic (8 automated + 2 interactive speaker/mic tests)
+- Use `sudo bash test-audio.sh --quick` for the 8 automated checks only (non-interactive, CI/headless safe)
 - Run `sudo wm8960-diag` for a comprehensive system dump (ready to paste into a GitHub issue)
 - Check the service log: `sudo cat /var/log/wm8960-soundcard.log`
 - After any kernel update, reboot to trigger the DKMS auto-rebuild

@@ -18,6 +18,7 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 ## Contents
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
+- [Tested Configurations](#tested-configurations)
 - [Quick Install](#quick-install)
 - [Quick Verification](#quick-verification)
 - [Audio Server Support](#audio-server-support)
@@ -44,7 +45,7 @@ This project provides a patched DKMS kernel module, systemd service, ALSA config
 - **Boot-time DKMS auto-rebuild** — transparently handles Pi OS kernel-update edge cases
 - **PipeWire, PulseAudio, and ALSA** auto-detected and configured on install
 - **WebRTC AEC3 echo cancellation** (~30dB attenuation) for voice assistants
-- **User utilities** — `test-audio.sh` (10-check diagnostic), `wm8960-diag` (bug-report dump), `wm8960-volume` (preset manager)
+- **User utilities** — `test-audio.sh` (10-check diagnostic, or 8 with `--quick`), `wm8960-diag` (bug-report dump), `wm8960-volume` (preset manager)
 - **Clean uninstall** — `# wm8960-managed` tagged config.txt lines, backup restore, idempotent re-install
 
 ## Prerequisites
@@ -54,36 +55,45 @@ This project provides a patched DKMS kernel module, systemd service, ALSA config
 - Raspberry Pi OS (32-bit or 64-bit, Trixie or newer recommended)
 - Internet connection and sudo access
 
+## Tested Configurations
+
+These combinations are verified to work on real hardware:
+
+| Pi Model | OS | Kernel | Status |
+|----------|-----|--------|--------|
+| Raspberry Pi Zero 2W | Raspberry Pi OS Lite Trixie (64-bit) | 6.12.75+rpt-rpi-v8 | Primary test platform |
+| Other 40-pin Pi models | Raspberry Pi OS Trixie or newer | 6.6+ | Should work (same kernel APIs) — please report results |
+
+The driver uses DKMS with kernel compatibility wrappers for 6.13+, and the boot-time auto-rebuild handles cross-kernel scenarios automatically.
+
 ## Quick Install
 
 ```bash
-# 1. Update and reboot first (see Installation guide for why)
+# Update system and reboot first (recommended — the installer will warn if a kernel update is pending)
 sudo apt update && sudo apt upgrade -y
 sudo reboot
 
-# 2. Clone and install
+# After reboot, clone and install
 sudo apt install git -y
 git clone https://github.com/MJD19994/WM8960_AudioHAT_Drivers.git
 cd WM8960_AudioHAT_Drivers
 sudo bash install.sh
-
-# 3. Reboot to load the driver
 sudo reboot
 ```
 
-The installer performs 13 steps and is idempotent (safe to re-run). For detailed steps, options (`--skip-pipewire`, `--yes`), and manual verification, see **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
+The installer performs 13 steps and is idempotent (safe to re-run). It runs a pre-flight check that warns you if a kernel update is pending reboot, and the service will auto-rebuild the DKMS module at boot if the kernel changes later. For detailed steps, options (`--skip-pipewire`, `--yes`), and manual verification, see **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
 
 ## Quick Verification
 
-After rebooting, run the automated test suite:
+After rebooting, run the test suite:
 
 ```bash
 cd ~/WM8960_AudioHAT_Drivers
-sudo bash test-audio.sh --quick        # 8 automated checks
-sudo bash test-audio.sh                # also runs interactive speaker + mic tests
+sudo bash test-audio.sh                # full 10-check test (8 automated + 2 interactive)
+sudo bash test-audio.sh --quick        # 8 automated checks only (skips speaker/mic tests)
 ```
 
-All 8 quick checks should pass: service status, DKMS module, I2C detection, kernel modules, sound card, playback device, capture device, and ALSA configuration.
+The 8 automated checks cover: service status, DKMS module, I2C detection, kernel modules, sound card, playback device, capture device, and ALSA configuration. The full test adds interactive speaker playback and microphone capture tests (checks 9 and 10), so you can hear the audio working end-to-end. Use `--quick` for CI or headless setups where no one can confirm interactive prompts.
 
 For manual verification steps, see [docs/INSTALLATION.md#manual-verification](docs/INSTALLATION.md#manual-verification).
 
@@ -183,13 +193,7 @@ aplay test.wav
 arecord -d 10 -f cd -t wav "recording-$(date +%Y%m%d-%H%M%S).wav"
 ```
 
-### Audio Pipeline Ideas
-
-- **Stream Bluetooth audio** to the WM8960 using PipeWire or `bluealsa`
-- **Internet radio** with `mpv` or `mplayer` — `mpv https://stream-url`
-- **Text-to-speech** via `espeak-ng "Hello world"` (install with `sudo apt install espeak-ng`)
-- **Voice assistants** — see [Echo Cancellation](#echo-cancellation) and point your wake-word engine at `hw:Loopback,1,1` for clean mic input
-- **Audio monitoring** — pipe mic straight to speaker as a hardware monitor: `arecord -D default -f S16_LE -r 48000 -c 2 | aplay -D default`
+For ideas on what to do with the HAT once audio is working (Bluetooth, internet radio, TTS, voice assistants, monitoring), see [docs/CONFIGURATION.md#use-cases](docs/CONFIGURATION.md#use-cases).
 
 For automated diagnostics and interactive speaker/mic verification, use the built-in test script:
 
@@ -228,7 +232,7 @@ The uninstaller removes the kernel module, device tree overlay, systemd services
 
 **First, run diagnostics:**
 ```bash
-sudo bash test-audio.sh --quick    # automated 10-check diagnostic
+sudo bash test-audio.sh --quick    # 8 automated checks (skips interactive tests)
 sudo wm8960-diag                   # full system dump (paste into GitHub issues)
 sudo cat /var/log/wm8960-soundcard.log
 ```

@@ -9,6 +9,7 @@ Detailed configuration reference for the WM8960 Audio HAT drivers, including con
 - [Advanced Configuration](#advanced-configuration)
 - [Saving Audio Settings](#saving-audio-settings)
 - [Service Management](#service-management)
+- [Use Cases](#use-cases)
 
 ---
 
@@ -350,3 +351,128 @@ sudo journalctl -u wm8960-soundcard.service -n 50
 ```bash
 sudo cat /var/log/wm8960-soundcard.log
 ```
+
+---
+
+## Use Cases
+
+Once audio is working, here are some common projects and patterns people build with WM8960 HATs. These are starting points for inspiration — not features of this project.
+
+### Voice Assistants
+
+The highest-value use case for WM8960 HATs, especially with the ReSpeaker 2-Mic variant. Pair with the echo canceller for music/TTS that doesn't break wake-word detection.
+
+```bash
+# Install the echo canceller
+cd tools/echo-cancel
+sudo bash install.sh
+
+# Point your voice assistant at the loopback devices:
+#   playback:  hw:Loopback,0,0
+#   capture:   hw:Loopback,1,1
+```
+
+Works with Home Assistant Wyoming satellites, Rhasspy, openWakeWord, Porcupine, and any Linux voice framework that accepts an ALSA device name. See [tools/echo-cancel/README.md](../tools/echo-cancel/README.md) and [ALSA-Mixer-Controls.md](ALSA-Mixer-Controls.md) for tuning guidance.
+
+### Internet Radio
+
+```bash
+sudo apt install mpv
+mpv "https://stream-url-here"
+
+# Or with a playlist
+mpv --shuffle playlist.m3u
+```
+
+For a headless auto-start on boot, wrap `mpv` in a systemd user service and point it at the WM8960 via `--audio-device=alsa/default`.
+
+### Text-to-Speech
+
+```bash
+sudo apt install espeak-ng
+espeak-ng "Hello, this is the WM8960 audio HAT speaking."
+
+# Higher-quality TTS with piper (used by Home Assistant)
+# See https://github.com/rhasspy/piper for install instructions
+```
+
+### Bluetooth Audio Streaming
+
+Stream from your phone to the Pi's WM8960 using PipeWire's built-in Bluetooth support (Trixie default) or `bluealsa` for lighter headless setups:
+
+```bash
+# PipeWire (desktop / full image)
+sudo apt install pipewire pipewire-pulse wireplumber libspa-0.2-bluetooth
+systemctl --user restart pipewire
+
+# bluealsa (headless, lighter)
+sudo apt install bluealsa
+sudo systemctl enable --now bluealsa
+```
+
+The installer already deploys a WirePlumber config making the WM8960 the default sink, so paired Bluetooth devices route here automatically.
+
+### Audio Monitoring / Hardware Loopback
+
+Pipe the mic straight to the speaker for live monitoring:
+
+```bash
+# Simple hardware monitor (any delay comes from ALSA buffers)
+arecord -D default -f S16_LE -r 48000 -c 2 | aplay -D default
+
+# Lower latency with smaller period/buffer
+arecord -D default -f S16_LE -r 48000 -c 2 --period-size=256 --buffer-size=1024 \
+    | aplay -D default --period-size=256 --buffer-size=1024
+```
+
+Note: this does NOT use echo cancellation — expect feedback if the mic and speaker are close together.
+
+### Music Playback and DJ Use Cases
+
+For music players that need specific ALSA devices:
+
+```bash
+# mpd (Music Player Daemon) — edit /etc/mpd.conf:
+audio_output {
+    type        "alsa"
+    name        "WM8960"
+    device      "plughw:wm8960soundcard,0"
+}
+
+# VLC — command line
+cvlc --aout=alsa --alsa-audio-device=default music.mp3
+
+# Spotify (spotifyd) — config.toml:
+backend = "alsa"
+device = "plughw:wm8960soundcard,0"
+```
+
+### Recording and Podcasting
+
+```bash
+# High-quality 48kHz stereo recording
+arecord -D default -f S24_LE -r 48000 -c 2 -t wav podcast.wav
+
+# Record with automatic gain control (hardware ALC)
+sudo wm8960-volume recording
+arecord -D default -f S16_LE -r 44100 -c 2 -t wav session.wav
+
+# Record in chunks (useful for long sessions)
+arecord -D default -f S16_LE -r 48000 -c 2 -t wav \
+    --max-file-time=3600 \
+    --use-strftime recordings/%Y/%m/%d-%H%M%S.wav
+```
+
+### Network Audio Streaming (AirPlay, etc.)
+
+The installer configures PipeWire/PulseAudio defaults, so standard network audio tools work:
+
+```bash
+# AirPlay receiver
+sudo apt install shairport-sync
+# Uses PulseAudio/PipeWire defaults — WM8960 is already default
+
+# Snapcast multi-room audio
+sudo apt install snapclient snapserver
+```
+

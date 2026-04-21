@@ -99,7 +99,8 @@ sudo bash install.sh --help
 After rebooting, the fastest way to verify your installation is the automated test script:
 
 ```bash
-sudo bash test-audio.sh --quick
+sudo bash test-audio.sh           # full 10-check test (8 automated + 2 interactive)
+sudo bash test-audio.sh --quick   # 8 automated checks only (skips speaker/mic tests)
 ```
 
 If you prefer to check things individually, the following seven checks should all pass:
