@@ -111,12 +111,19 @@ echo "Step 8/11: Removing DKMS kernel module..."
 dkms_still_registered=0
 if dkms status | grep -q "wm8960-soundcard"; then
     dkms remove wm8960-soundcard/1.0 --all || echo "Warning: DKMS removal returned an error (continuing uninstall)"
-    # Verify removal was successful
-    if ! dkms status | grep -q "wm8960-soundcard"; then
-        echo "DKMS package successfully removed"
-    else
+    # Verify removal was successful — separate dkms status exit code from grep
+    # so a broken DKMS state (dkms itself failing) is not mistaken for
+    # "successfully removed" (which would then delete the source files).
+    dkms_status_rc=0
+    dkms_status_after="$(dkms status 2>&1)" || dkms_status_rc=$?
+    if [ "$dkms_status_rc" -ne 0 ]; then
+        dkms_still_registered=1
+        echo "Warning: could not verify DKMS removal (dkms status exited $dkms_status_rc); keeping source files"
+    elif printf '%s\n' "$dkms_status_after" | grep -q "wm8960-soundcard"; then
         dkms_still_registered=1
         echo "Warning: DKMS package may still be partially installed"
+    else
+        echo "DKMS package successfully removed"
     fi
 else
     echo "DKMS module not found, skipping..."

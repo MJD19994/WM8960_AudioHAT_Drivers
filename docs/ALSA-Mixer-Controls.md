@@ -47,17 +47,19 @@ amixer -c wm8960soundcard sset 'Playback Volume' -6.0dB
 amixer -c wm8960soundcard sset 'Playback Volume' 5%+   # up 5%
 amixer -c wm8960soundcard sset 'Playback Volume' 5%-   # down 5%
 
-# Toggle mute
-amixer -c wm8960soundcard sset 'Speaker Playback Switch' toggle
-
-# Unmute specifically
-amixer -c wm8960soundcard sset 'Speaker Playback Switch' on
-amixer -c wm8960soundcard sset 'Headphone Playback Switch' on
-
 # Switch-type controls (on/off)
 amixer -c wm8960soundcard sset 'Left Input Mixer Boost Switch' on
 amixer -c wm8960soundcard sset 'Noise Gate Switch' on
 amixer -c wm8960soundcard sset 'ADC High Pass Filter Switch' on
+
+# Zero-cross mute (for click-free volume changes)
+amixer -c wm8960soundcard sset 'Speaker Playback ZC Switch' on
+amixer -c wm8960soundcard sset 'Headphone Playback ZC Switch' on
+
+# Effectively mute output (the WM8960 driver doesn't expose a plain
+# "Playback Switch" — set volume to 0 instead, or use alsamixer's M key)
+amixer -c wm8960soundcard sset 'Speaker Playback Volume' 0%
+amixer -c wm8960soundcard sset 'Headphone Playback Volume' 0%
 
 # Enum-type controls
 amixer -c wm8960soundcard sset 'ALC Function' Stereo
@@ -97,7 +99,7 @@ fi
 amixer -c wm8960soundcard sget 'Playback Volume' | grep -oE '[0-9]+%' | head -1
 
 # Capture whether a switch is on or off
-state=$(amixer -c wm8960soundcard sget 'Speaker Playback Switch' | grep -oE '\[on\]|\[off\]' | head -1)
+state=$(amixer -c wm8960soundcard sget 'Noise Gate Switch' | grep -oE '\[on\]|\[off\]' | head -1)
 ```
 
 ---

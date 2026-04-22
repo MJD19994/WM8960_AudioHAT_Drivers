@@ -27,7 +27,7 @@ sudo cat /var/log/wm8960-soundcard.log
 **Status:** Resolved in the current version of the driver.
 
 **Historical Context:** Earlier versions registered as `asoc-simple-card`, which conflicted with Raspberry Pi's built-in simple-audio-card driver:
-```
+```text
 Error: Driver 'asoc-simple-card' is already registered, aborting...
 ```
 
