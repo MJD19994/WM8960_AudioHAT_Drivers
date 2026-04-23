@@ -81,7 +81,7 @@ sudo bash install.sh
 sudo reboot
 ```
 
-The installer performs 13 steps and is idempotent (safe to re-run). It runs a pre-flight check that warns you if a kernel update is pending reboot, and the service will auto-rebuild the DKMS module at boot if the kernel changes later. For detailed steps, options (`--skip-pipewire`, `--yes`), and manual verification, see **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
+The installer performs 13 steps and is idempotent (safe to re-run). It runs a pre-flight check that warns you if a kernel update is pending reboot, and the service will auto-rebuild the DKMS module at boot if the kernel changes later. For detailed steps, options (`--skip-pipewire`, `--skip-pulseaudio`, `--yes`), and manual verification, see **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
 
 ## Quick Verification
 
