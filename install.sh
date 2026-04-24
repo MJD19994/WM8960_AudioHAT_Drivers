@@ -143,7 +143,10 @@ in_all_section() {
     all_line=$(grep -nE "^[[:space:]]*\[all\]" "$CONFIG_FILE" | head -1 | cut -d: -f1)
     # Find next section header after [all], or use end of file
     local next_section_line
-    next_section_line=$(tail -n +"$((all_line + 1))" "$CONFIG_FILE" | grep -nE "^\[" | head -1 | cut -d: -f1)
+    # Match the next section header, allowing leading whitespace for consistency
+    # with the [all] match above (otherwise an indented later section header
+    # would be missed and we'd treat its contents as part of [all]).
+    next_section_line=$(tail -n +"$((all_line + 1))" "$CONFIG_FILE" | grep -nE "^[[:space:]]*\[" | head -1 | cut -d: -f1)
     if [ -n "$next_section_line" ]; then
         next_section_line=$((all_line + next_section_line))
         sed -n "$((all_line + 1)),$((next_section_line - 1))p" "$CONFIG_FILE" | grep -qE "$pattern"
@@ -158,7 +161,10 @@ line_in_all_section() {
     local all_line
     all_line=$(grep -nE "^[[:space:]]*\[all\]" "$CONFIG_FILE" | head -1 | cut -d: -f1)
     local next_section_line
-    next_section_line=$(tail -n +"$((all_line + 1))" "$CONFIG_FILE" | grep -nE "^\[" | head -1 | cut -d: -f1)
+    # Match the next section header, allowing leading whitespace for consistency
+    # with the [all] match above (otherwise an indented later section header
+    # would be missed and we'd treat its contents as part of [all]).
+    next_section_line=$(tail -n +"$((all_line + 1))" "$CONFIG_FILE" | grep -nE "^[[:space:]]*\[" | head -1 | cut -d: -f1)
     local section_content rel_line
     if [ -n "$next_section_line" ]; then
         next_section_line=$((all_line + next_section_line))
@@ -342,23 +348,20 @@ echo "Step 7/13: Configuring I2S interface in $CONFIG_FILE..."
 # Note: In rare cases, this may conflict with custom audio setups
 # If you experience audio issues after installation, try commenting out dtoverlay=i2s-mmap in config.txt
 
-# Remove old dtparam=i2s=on if present in [all] section.
-# Only tag as wm8960-managed if we added it ourselves; otherwise preserve the
-# user's original value in commented form so uninstall can restore it manually.
+# Comment out an active dtparam=i2s=on in [all] if present. We preserve the
+# user's original value in commented form WITHOUT a wm8960-managed tag, so
+# the uninstall's wm8960-managed removal sweep leaves the commented line
+# behind and the user can restore it by removing the leading '# '.
 if in_all_section "^[[:space:]]*dtparam=i2s=on"; then
     i2s_line=$(line_in_all_section "^[[:space:]]*dtparam=i2s=on")
     if [ -n "$i2s_line" ]; then
         i2s_text=$(sed -n "${i2s_line}p" "$CONFIG_FILE")
-        if [[ "$i2s_text" == *"wm8960-managed"* ]]; then
-            replacement="# dtparam=i2s=on  # Replaced by dtoverlay=i2s-mmap # wm8960-managed"
-        else
-            replacement="# ${i2s_text}  # Disabled by WM8960 installer; remove leading '# ' to restore"
-        fi
+        replacement="# ${i2s_text}  # Disabled by WM8960 installer; remove leading '# ' to restore"
         if ! sed -i "${i2s_line}c\\${replacement}" "$CONFIG_FILE"; then
             echo "ERROR: Failed to comment out dtparam=i2s=on in config.txt"
             exit 1
         fi
-        echo "Replaced dtparam=i2s=on with dtoverlay=i2s-mmap"
+        echo "Commented out dtparam=i2s=on (replaced by dtoverlay=i2s-mmap)"
     fi
 fi
 
@@ -390,11 +393,19 @@ if ! in_all_section "^[^#]*dtoverlay=i2s-mmap"; then
     echo ""
 fi
 
-# Add informational comment about dynamic loading benefits
-# Dynamic loading allows for I2C detection and proper initialization timing
-if ! grep -qF "# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection" "$CONFIG_FILE"; then
+# Add informational comment about dynamic loading benefits.
+# Tagged with # wm8960-managed so uninstall removes it cleanly via the
+# tag-based sweep (no broad regex that could clobber user comments).
+#
+# Upgrade path: if a legacy (pre-1.3.0) version wrote this note without a
+# wm8960-managed tag, upgrade it in place so tag-based uninstall catches it.
+if grep -q "wm8960-soundcard overlay loaded dynamically" "$CONFIG_FILE" && \
+   ! grep -q "wm8960-soundcard overlay loaded dynamically.*wm8960-managed" "$CONFIG_FILE"; then
+    sed -i '/wm8960-soundcard overlay loaded dynamically/s/$/ # wm8960-managed/' "$CONFIG_FILE"
+    echo "Upgraded legacy untagged overlay note to # wm8960-managed"
+elif ! grep -qF "wm8960-soundcard overlay loaded dynamically" "$CONFIG_FILE"; then
     echo "" >> "$CONFIG_FILE"
-    echo "# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection" >> "$CONFIG_FILE"
+    echo "# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection # wm8960-managed" >> "$CONFIG_FILE"
 fi
 
 # Note: We do NOT add dtoverlay=wm8960-soundcard here - loaded dynamically by service
@@ -518,6 +529,18 @@ if [ -f "$SCRIPT_DIR/wm8960-soundcard.logrotate" ]; then
     echo "Installed wm8960-soundcard logrotate configuration"
 fi
 
+# Pre-create the log file at the same mode logrotate's `create` directive uses
+# (0644 root:root). Without this, first boot creates it at 0600 (default umask
+# for systemd-managed services), and logrotate flips perms to 0644 on first
+# rotation — small inconsistency that scripts / monitoring tools can trip on.
+# Preserve existing log content on re-run (don't clobber debug history).
+if [ ! -e /var/log/wm8960-soundcard.log ]; then
+    install -m 0644 -o root -g root /dev/null /var/log/wm8960-soundcard.log
+else
+    chown root:root /var/log/wm8960-soundcard.log
+    chmod 0644 /var/log/wm8960-soundcard.log
+fi
+
 echo ""
 echo "Step 11/13: Installing ALSA auto-save components (disabled by default)..."
 # Copy auto-save script to /usr/bin
@@ -545,10 +568,14 @@ else
 fi
 
 echo ""
-echo "Step 12/13: Enabling and starting systemd service..."
+echo "Step 12/13: Enabling systemd service..."
 systemctl daemon-reload
+# Only enable; don't start. The service loads the DT overlay at boot once
+# I2S is active. Starting it now (pre-reboot) would fail — I2C is ready but
+# the I2S overlay isn't yet, and the codec overlay would try to load against
+# a stale config. A reboot after install gives a clean path.
 systemctl enable wm8960-soundcard.service
-echo "Service enabled to start on boot"
+echo "Service enabled to start on boot (will run on next reboot)"
 
 echo ""
 echo "Step 13/13: Validating installation..."
@@ -587,11 +614,12 @@ else
     validation_errors=$((validation_errors + 1))
 fi
 
-# Check if config.txt was modified correctly
-if grep -qE "^[^#]*dtparam=i2c_arm=on" "$CONFIG_FILE"; then
-    echo "[PASS] I2C enabled in config.txt"
+# Check config.txt was modified correctly. Must be block-aware — dtparam=i2c_arm=on
+# under [pi4]/[cm4]/etc. doesn't satisfy our install contract (we require [all]).
+if in_all_section "^[^#]*dtparam=i2c_arm=on"; then
+    echo "[PASS] I2C enabled in config.txt [all] section"
 else
-    echo "[FAIL] I2C not enabled in config.txt"
+    echo "[FAIL] I2C not enabled in config.txt [all] section"
     validation_errors=$((validation_errors + 1))
 fi
 

@@ -119,7 +119,7 @@ cd tools/echo-cancel
 sudo bash install.sh
 ```
 
-When running, all audio must go through the loopback devices (`hw:Loopback,0,0` / `hw:Loopback,1,1`) or the `aec` virtual ALSA device. For full documentation, tuning flags, and testing instructions, see **[tools/echo-cancel/README.md](tools/echo-cancel/README.md)**.
+When running, all audio must go through the loopback devices (`hw:Loopback,0,0` for playback, `hw:Loopback,1,1` for clean mic capture). For full documentation, tuning flags, and testing instructions, see **[tools/echo-cancel/README.md](tools/echo-cancel/README.md)**.
 
 ## Mixer Controls
 
@@ -148,6 +148,7 @@ sudo wm8960-volume speakers        # Moderate speaker volume, headphones muted
 sudo wm8960-volume headphones      # Comfortable headphone volume, speakers muted
 sudo wm8960-volume recording       # Mic capture with moderate gain, ALC off
 sudo wm8960-volume voice           # Voice-assistant tuned: ALC + noise gate + HPF
+sudo wm8960-volume max             # Maximum safe volume for all outputs (loud!)
 sudo wm8960-volume reset           # Restore factory defaults
 sudo wm8960-volume show            # Display current levels
 ```

@@ -23,9 +23,13 @@
 #define CELL	"#sound-dai-cells"
 #define PREFIX	"simple-audio-card,"
 
-/* Define this structure if not available in the kernel */
-#ifndef simple_util_card_info
-struct simple_util_card_info {
+/*
+ * Local card-info struct used only by the non-DT platform_data code path below.
+ * We use our own namespaced name (wm8960_simple_card_info) rather than the
+ * ASoC-ish simple_util_card_info so we can't collide with any current or
+ * future upstream type of that name regardless of header layout.
+ */
+struct wm8960_simple_card_info {
     const char *name;
     const char *card;
     const char *codec;
@@ -34,7 +38,6 @@ struct simple_util_card_info {
     struct simple_util_dai cpu_dai;
     struct simple_util_dai codec_dai;
 };
-#endif
 
 /* Define dai_link_set_capabilities if not available in the kernel */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 13, 0)
@@ -699,7 +702,7 @@ static int simple_probe(struct platform_device *pdev)
 		}
 
 	} else {
-		struct simple_util_card_info *cinfo;
+		struct wm8960_simple_card_info *cinfo;
 		struct snd_soc_dai_link_component *cpus;
 		struct snd_soc_dai_link_component *codecs;
 		struct snd_soc_dai_link_component *platform;
@@ -717,7 +720,7 @@ static int simple_probe(struct platform_device *pdev)
 		    !cinfo->codec ||
 		    !cinfo->platform ||
 		    !cinfo->cpu_dai.name) {
-			dev_err(dev, "insufficient simple_util_card_info settings\n");
+			dev_err(dev, "insufficient wm8960_simple_card_info settings\n");
 			return -EINVAL;
 		}
 

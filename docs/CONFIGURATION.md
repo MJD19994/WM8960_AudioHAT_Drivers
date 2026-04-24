@@ -63,7 +63,7 @@ dtparam=i2c_arm=on # wm8960-managed
 # Enable I2S memory-mapped interface
 dtoverlay=i2s-mmap # wm8960-managed
 
-# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection
+# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection # wm8960-managed
 # Do NOT add: dtoverlay=wm8960-soundcard
 ```
 
@@ -168,11 +168,13 @@ Add rate conversion parameters to the PCM definition:
 pcm.!default {
     type plug
     slave {
-        pcm "dmix"
+        pcm "dmixer"
         rate 48000
     }
 }
 ```
+
+> **Note:** `dmixer` (and `dsnooper` for capture) are the PCM names already defined in the shipped `asound.conf`. Using `dmix` directly would reference ALSA's built-in dmix type, which isn't what the existing config wires up.
 
 ### Buffer Size Tuning
 

@@ -1194,6 +1194,32 @@ static int wm8960_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
 {
 	struct snd_soc_component *component = dai->component;
 	struct wm8960_priv *wm8960 = snd_soc_component_get_drvdata(component);
+	/*
+	 * INTENTIONAL: force PLL mode regardless of caller-supplied clk_id.
+	 *
+	 * Every WM8960 HAT we support (Keyestudio, Waveshare, Seeed ReSpeaker
+	 * 2-Mic) shares the same hardware topology: a fixed 24 MHz onboard
+	 * crystal on the codec's MCLK pin, with NO MCLK connection from the
+	 * Pi SoC. The I2S controller only drives BCLK/LRCLK.
+	 *
+	 * The mainline wm8960 driver expects userspace (the machine driver)
+	 * to call snd_soc_dai_set_sysclk() with a valid clk_id+freq pair. On
+	 * these HATs, the simple-audio-card machine driver doesn't know what
+	 * to pass — there's no DT clock-frequency property wired up — so it
+	 * calls us with zero/defaults and the mainline driver then bails out
+	 * with "No MCLK configured".
+	 *
+	 * Our fix: always run the codec in PLL mode and tell the PLL the
+	 * input is 24 MHz from the onboard crystal (freq_in = 24000000 below).
+	 * The PLL factor search produces dividers that generate the target
+	 * sysclk from that 24 MHz reference, and BCLK/LRCLK are then derived
+	 * from sysclk normally.
+	 *
+	 * This is not configurable via DT because it would be the same on
+	 * every HAT this driver is intended to support. If a future HAT
+	 * variant actually routes MCLK from the SoC, that's a separate DKMS
+	 * package.
+	 */
 	clk_id = WM8960_SYSCLK_PLL;
 
 	switch (clk_id) {

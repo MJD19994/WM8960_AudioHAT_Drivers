@@ -165,11 +165,13 @@ if [ -f "$CONFIG_FILE" ]; then
     # Make a backup of config.txt before making any changes
     cp "$CONFIG_FILE" "${CONFIG_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
 
-    # Remove WM8960-related overlay entries (if any were manually added)
-    sed -i '/^dtoverlay=wm8960-soundcard/d' "$CONFIG_FILE"
-    # Remove only wm8960-soundcard specific comments
-    sed -i '/^#.*wm8960-soundcard/d' "$CONFIG_FILE"
-    # Remove installer-managed lines (tagged with # wm8960-managed)
+    # Remove WM8960-related overlay entries (if any were manually added by users).
+    # Allow leading whitespace — some users indent lines inside [section] blocks.
+    sed -i '/^[[:space:]]*dtoverlay=wm8960-soundcard/d' "$CONFIG_FILE"
+    # Remove installer-managed lines (tagged with # wm8960-managed).
+    # This includes dtparam=i2c_arm=on, dtoverlay=i2s-mmap, and our informational
+    # comment — all tagged so we only remove what we added. User-authored comments
+    # mentioning wm8960-soundcard are preserved.
     sed -i '/# wm8960-managed/d' "$CONFIG_FILE"
 
     echo "Config.txt cleaned (backup created)"
@@ -188,12 +190,12 @@ echo "  - WM8960-related overlay and comment lines"
 echo ""
 echo "The following items were NOT removed (manual cleanup if desired):"
 echo "  - i2c-dev in /etc/modules"
-echo "  - Installed packages (dkms, i2c-tools, libasound2-plugins)"
+echo "  - Installed packages (dkms, i2c-tools, alsa-utils, libasound2-plugins)"
 echo "  - Kernel headers"
 echo ""
 echo "To remove these manually:"
 echo "  1. Edit /etc/modules and remove i2c-dev if not needed"
-echo "  2. apt-get remove dkms i2c-tools (if not needed by other software)"
+echo "  2. apt-get remove dkms i2c-tools alsa-utils libasound2-plugins (if not needed by other software)"
 echo ""
 echo "IMPORTANT: Reboot your Raspberry Pi for changes to take effect."
 echo ""
