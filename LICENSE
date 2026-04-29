@@ -2,8 +2,9 @@ This repository contains code under multiple licenses. The MIT license below
 applies to scripts, configs, overlays, service files, docs, and all files at
 the repo root. Components under subdirectories carry their own licenses:
 
-  - kernel_module/     GPL-2.0-only (see SPDX headers in source files)
-  - tools/echo-cancel/ GPLv3 (see tools/echo-cancel/LICENSE-GPL3)
+  - kernel_module/     GPL-2.0-only       (see SPDX headers in source files)
+  - dkms/snd-aloop/    GPL-2.0-or-later   (Linux kernel source, see file headers)
+  - tools/echo-cancel/ GPL-3.0-or-later   (see tools/echo-cancel/LICENSE-GPL3)
 
 For per-component details and guidance, see docs/LICENSING.md.
 

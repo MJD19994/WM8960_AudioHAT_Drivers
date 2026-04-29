@@ -227,6 +227,7 @@ if [ "x${is_1a}" != "x" ]; then
     count=${count:-0}
     if [ "$count" -gt "$keep" ]; then
       find "$dir" -name "$pattern" -type f 2>/dev/null | while IFS= read -r file; do
+        local mtime
         mtime=$(stat -c '%Y' "$file" 2>/dev/null || stat -f '%m' "$file" 2>/dev/null)
         echo "$mtime|$file"
       done | sort -t'|' -k1,1n | cut -d'|' -f2- | head -n $((count - keep)) | while IFS= read -r file; do

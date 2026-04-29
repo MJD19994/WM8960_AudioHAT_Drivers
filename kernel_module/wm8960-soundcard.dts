@@ -2,9 +2,10 @@
  * Device Tree Overlay for WM8960 Audio HAT
  *
  * Configures the WM8960 codec on I2C1 (address 0x1a) with a simple-audio-card
- * machine driver using I2S. Provides a fixed 12.288MHz MCLK reference clock
- * (the custom DKMS codec driver actually uses the internal PLL from BCLK,
- * but the clock node is required by the device tree binding).
+ * machine driver using I2S. The clock-frequency value below is a placeholder
+ * required by the simple-audio-card binding; the custom DKMS codec driver
+ * ignores it and instead runs the codec's internal PLL from the 24 MHz
+ * onboard crystal on the WM8960's MCLK pin (no SoC-supplied MCLK on Pi HATs).
  *
  * Audio routing:
  *   Playback: I2S -> WM8960 DAC -> HP_L/HP_R (headphones) + SPK_LP/SPK_LN (speaker)

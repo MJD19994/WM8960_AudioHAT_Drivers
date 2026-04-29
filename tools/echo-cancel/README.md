@@ -171,6 +171,6 @@ sudo bash install.sh --uninstall
 
 ## License
 
-The echo-cancel tools are GPLv3/GPL-3.0-family; see [../../docs/LICENSING.md](../../docs/LICENSING.md) and [LICENSE-GPL3](LICENSE-GPL3) for the authoritative per-component breakdown. The SpeexDSP engine is based on [voice-engine/ec](https://github.com/voice-engine/ec).
+The echo-cancel tools are licensed GPL-3.0-or-later; see [../../docs/LICENSING.md](../../docs/LICENSING.md) and [LICENSE-GPL3](LICENSE-GPL3) for the authoritative per-component breakdown. The SpeexDSP engine is based on [voice-engine/ec](https://github.com/voice-engine/ec).
 
 The PortAudio ring buffer (`pa_ringbuffer.c`, `pa_ringbuffer.h`, `pa_memorybarrier.h`) is vendored from [PortAudio](http://www.portaudio.com) under a BSD-style license — see the file headers for details.
