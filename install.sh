@@ -397,12 +397,15 @@ fi
 # Tagged with # wm8960-managed so uninstall removes it cleanly via the
 # tag-based sweep (no broad regex that could clobber user comments).
 #
-# Upgrade path: if a legacy (pre-1.3.0) version wrote this note without a
-# wm8960-managed tag, upgrade it in place so tag-based uninstall catches it.
-if grep -q "wm8960-soundcard overlay loaded dynamically" "$CONFIG_FILE" && \
-   ! grep -q "wm8960-soundcard overlay loaded dynamically.*wm8960-managed" "$CONFIG_FILE"; then
-    sed -i '/wm8960-soundcard overlay loaded dynamically/s/$/ # wm8960-managed/' "$CONFIG_FILE"
-    echo "Upgraded legacy untagged overlay note to # wm8960-managed"
+# Upgrade path: if any matching line is missing the wm8960-managed tag
+# (legacy pre-1.3.0 install, manual edit, or a partial state with both
+# tagged + untagged lines), tag every untagged occurrence so the
+# tag-based uninstall catches them all. The sed range {/wm8960-managed/!}
+# skips already-tagged lines so we don't append the tag twice.
+if grep "wm8960-soundcard overlay loaded dynamically" "$CONFIG_FILE" \
+        | grep -qv "wm8960-managed"; then
+    sed -i '/wm8960-soundcard overlay loaded dynamically/{/wm8960-managed/!s/$/ # wm8960-managed/}' "$CONFIG_FILE"
+    echo "Upgraded legacy untagged overlay note(s) to # wm8960-managed"
 elif ! grep -qF "wm8960-soundcard overlay loaded dynamically" "$CONFIG_FILE"; then
     echo "" >> "$CONFIG_FILE"
     echo "# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection # wm8960-managed" >> "$CONFIG_FILE"

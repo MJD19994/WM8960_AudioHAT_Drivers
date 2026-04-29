@@ -1,6 +1,6 @@
 # WM8960 Audio HAT Drivers for Raspberry Pi
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: MIT / GPL-2.0-only / GPL-3.0-or-later](https://img.shields.io/badge/License-MIT%20%2F%20GPL--2.0--only%20%2F%20GPL--3.0--or--later-blue.svg)](docs/LICENSING.md)
 [![GitHub release](https://img.shields.io/github/v/release/MJD19994/WM8960_AudioHAT_Drivers)](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/releases)
 [![CI](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/actions/workflows/ci.yml/badge.svg)](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/actions/workflows/ci.yml)
 ![Raspberry Pi OS](https://img.shields.io/badge/Raspberry%20Pi%20OS-Trixie-success?style=flat-square)
@@ -266,7 +266,7 @@ This repository contains code under three licenses, reflecting the origin of eac
 |-----------|---------|-----|
 | Scripts, configs, overlays, service files, docs, and all files at the repo root | **MIT** — see [LICENSE](LICENSE) | Original work, kept permissive for maximum reuse |
 | [`kernel_module/`](kernel_module/) — DKMS kernel module source | **GPL-2.0-only** | Derived from the mainline Linux kernel `wm8960.c` codec driver (Copyright 2007–2011 Wolfson Microelectronics); kernel modules inherit the kernel's license |
-| [`tools/echo-cancel/`](tools/echo-cancel/) — optional echo canceller | **GPLv3** — see [tools/echo-cancel/LICENSE-GPL3](tools/echo-cancel/LICENSE-GPL3) | SpeexDSP engine inherits GPLv3 from [voice-engine/ec](https://github.com/voice-engine/ec); WebRTC engine is GPLv3 by our choice for consistency. The vendored PortAudio ring buffer (`pa_ringbuffer.*`, `pa_memorybarrier.h`) retains its original BSD-style license. |
+| [`tools/echo-cancel/`](tools/echo-cancel/) — optional echo canceller | **GPL-3.0-or-later** — see [tools/echo-cancel/LICENSE-GPL3](tools/echo-cancel/LICENSE-GPL3) | SpeexDSP engine inherits GPLv3-compatible terms from [voice-engine/ec](https://github.com/voice-engine/ec); WebRTC engine is GPL-3.0-or-later by our choice for consistency. The vendored PortAudio ring buffer (`pa_ringbuffer.*`, `pa_memorybarrier.h`) retains its original BSD-style license. |
 
 If you only use the audio driver, you're working with MIT + GPL-2.0-only (standard kernel-module licensing). If you additionally install the echo canceller, GPLv3 applies to that binary only.
 
