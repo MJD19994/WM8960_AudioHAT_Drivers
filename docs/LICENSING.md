@@ -4,7 +4,7 @@ This document expands on the [License section in the README](../README.md#licens
 
 ## Per-component breakdown
 
-**MIT (default for this repo).** Everything outside `kernel_module/` and `tools/echo-cancel/` is MIT-licensed. This includes all installer scripts, systemd services, ALSA/PulseAudio/PipeWire configs, device tree overlay sources, utility scripts, and documentation.
+**MIT (default for this repo).** Everything outside `kernel_module/`, `tools/echo-cancel/`, and `dkms/snd-aloop/` is MIT-licensed. This includes all installer scripts, systemd services, ALSA/PulseAudio/PipeWire configs, device tree overlay sources, utility scripts, and documentation.
 
 **GPL-2.0-only (`kernel_module/`).** The DKMS kernel module is a patched version of the mainline Linux `wm8960.c` codec driver plus our added PLL and kernel compatibility fixes, and a small machine driver (`wm8960-soundcard.c`). Each source file carries an `SPDX-License-Identifier: GPL-2.0-only` header and the original Wolfson Microelectronics copyright notice alongside our modifications.
 

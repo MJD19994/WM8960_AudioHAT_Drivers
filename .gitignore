@@ -29,3 +29,6 @@ kernel_module/wm8960-soundcard.dtbo.original
 
 ROADMAP.md
 docs/README-ORIGINAL-BACKUP.md
+
+# Local notes (PR review comments, scratch, etc.)
+notes/
