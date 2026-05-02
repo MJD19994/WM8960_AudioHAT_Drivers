@@ -56,11 +56,26 @@ if [ "$UNINSTALL" -eq 1 ]; then
     if grep -q "wm8960-managed" /etc/modules-load.d/snd-aloop.conf 2>/dev/null; then
         rm -f /etc/modules-load.d/snd-aloop.conf  # clean up legacy name (only if we own it)
     fi
-    # Unregister snd-aloop DKMS if we registered it (built-in kernel module is unaffected)
-    if command -v dkms >/dev/null 2>&1 && dkms status snd-aloop/1.0 2>/dev/null | grep -q .; then
-        dkms remove snd-aloop/1.0 --all 2>/dev/null || true
+    # Unregister snd-aloop DKMS if we registered it (built-in kernel module is unaffected).
+    # Separate the dkms exit code from the grep parsing so a broken DKMS state
+    # doesn't masquerade as "not registered" and then have us delete the source
+    # tree out from under a still-registered package.
+    aloop_still_registered=0
+    if command -v dkms >/dev/null 2>&1; then
+        aloop_status_rc=0
+        aloop_status_out="$(dkms status snd-aloop/1.0 2>&1)" || aloop_status_rc=$?
+        if [ "$aloop_status_rc" -ne 0 ]; then
+            aloop_still_registered=1
+            log "Warning: could not query DKMS for snd-aloop (exit $aloop_status_rc); keeping source tree"
+        elif printf '%s\n' "$aloop_status_out" | grep -q .; then
+            dkms remove snd-aloop/1.0 --all 2>/dev/null || aloop_still_registered=1
+        fi
     fi
-    rm -rf /usr/src/snd-aloop-1.0
+    if [ "$aloop_still_registered" -eq 0 ]; then
+        rm -rf /usr/src/snd-aloop-1.0
+    else
+        log "Skipping /usr/src/snd-aloop-1.0 removal because DKMS may still reference it"
+    fi
     systemctl daemon-reload
     log "Echo canceller uninstalled"
     exit 0

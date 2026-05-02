@@ -40,7 +40,7 @@ This project provides a patched DKMS kernel module, systemd service, ALSA config
 
 ### Key Features
 
-- **Patched DKMS kernel module** — forces PLL mode from BCLK so Pi HATs work without an external MCLK (mainline `snd_soc_wm8960` fails here)
+- **Patched DKMS kernel module** — forces PLL mode using the HAT's onboard 24 MHz crystal so Pi HATs work without an external MCLK (mainline `snd_soc_wm8960` fails here)
 - **Dynamic overlay loading** via systemd service with 5-retry I2C detection — no `config.txt` overlay races or boot failures
 - **Boot-time DKMS auto-rebuild** — transparently handles Pi OS kernel-update edge cases
 - **PipeWire, PulseAudio, and ALSA** auto-detected and configured on install

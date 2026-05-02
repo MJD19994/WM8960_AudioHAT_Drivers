@@ -54,8 +54,19 @@ ensure_dkms_module() {
     return 0
   fi
 
-  # Skip if DKMS source is not registered
-  if ! dkms status "$dkms_module/$dkms_version" 2>/dev/null | grep -q "$dkms_module"; then
+  # Query DKMS state separately from the grep so a failure of dkms itself
+  # (e.g., broken kernel build env) doesn't silently fall through as
+  # "module not registered" — which would then skip the auto-rebuild we
+  # added precisely to recover from kernel-update breakage.
+  local dkms_status_rc=0
+  local dkms_status_out
+  dkms_status_out="$(dkms status "$dkms_module/$dkms_version" 2>&1)" || dkms_status_rc=$?
+  if [ "$dkms_status_rc" -ne 0 ]; then
+    log_message "WARNING: dkms status exited $dkms_status_rc: $dkms_status_out"
+    log_message "Cannot determine DKMS state; skipping auto-rebuild (manual rebuild may be required)"
+    return 1
+  fi
+  if ! printf '%s\n' "$dkms_status_out" | grep -q "$dkms_module"; then
     log_message "DKMS module $dkms_module not registered, skipping auto-rebuild check"
     return 0
   fi

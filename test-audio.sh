@@ -89,8 +89,13 @@ if ! command -v dkms >/dev/null 2>&1; then
     fail "dkms not installed"
 else
     running_kernel=$(uname -r)
-    dkms_output=$(dkms status wm8960-soundcard/1.0 -k "$running_kernel" 2>/dev/null)
-    if echo "$dkms_output" | grep -q "installed"; then
+    # Separate dkms exit code from grep parsing so a broken DKMS state
+    # surfaces as a distinct failure instead of looking like "not built".
+    dkms_rc=0
+    dkms_output="$(dkms status wm8960-soundcard/1.0 -k "$running_kernel" 2>&1)" || dkms_rc=$?
+    if [ "$dkms_rc" -ne 0 ]; then
+        fail "dkms status failed (exit $dkms_rc): $dkms_output"
+    elif echo "$dkms_output" | grep -q "installed"; then
         pass "DKMS module installed for kernel $running_kernel"
     elif echo "$dkms_output" | grep -q "built"; then
         fail "DKMS module built but not installed for kernel $running_kernel (run: sudo dkms install wm8960-soundcard/1.0)"

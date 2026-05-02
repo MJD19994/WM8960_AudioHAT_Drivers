@@ -238,8 +238,17 @@ fi
 
 echo ""
 echo "Step 4/13: Compiling and installing wm8960-soundcard kernel module via DKMS..."
-# Check if DKMS module is already installed
-if dkms status | grep -q "wm8960-soundcard"; then
+# Check if DKMS module is already installed. Separate the dkms exit code
+# from the grep parsing so a broken DKMS state doesn't look like "not
+# installed" and then collide with the fresh add/build below.
+dkms_pre_rc=0
+dkms_pre_out="$(dkms status 2>&1)" || dkms_pre_rc=$?
+if [ "$dkms_pre_rc" -ne 0 ]; then
+    echo "ERROR: dkms status failed (exit $dkms_pre_rc): $dkms_pre_out"
+    echo "Resolve the DKMS issue (often: sudo apt-get install --reinstall dkms) and re-run."
+    exit 1
+fi
+if printf '%s\n' "$dkms_pre_out" | grep -q "wm8960-soundcard"; then
     echo "DKMS module already installed, removing old version..."
     if ! dkms remove wm8960-soundcard/1.0 --all; then
         echo "Warning: DKMS remove failed (continuing with fresh install)"
@@ -274,7 +283,13 @@ echo "Kernel module source files synced successfully"
 
 # Add and build DKMS module
 echo "Adding module to DKMS..."
-if dkms status wm8960-soundcard/1.0 2>/dev/null | grep -q "wm8960-soundcard/1.0"; then
+dkms_reg_rc=0
+dkms_reg_out="$(dkms status wm8960-soundcard/1.0 2>&1)" || dkms_reg_rc=$?
+if [ "$dkms_reg_rc" -ne 0 ]; then
+    echo "ERROR: dkms status failed (exit $dkms_reg_rc): $dkms_reg_out"
+    exit 1
+fi
+if printf '%s\n' "$dkms_reg_out" | grep -q "wm8960-soundcard/1.0"; then
     echo "Module already registered in DKMS"
 else
     dkms add -m wm8960-soundcard -v 1.0
@@ -585,8 +600,13 @@ echo "Step 13/13: Validating installation..."
 # Verify critical files and configurations
 validation_errors=0
 
-# Check if DKMS module was installed
-if dkms status | grep -q "wm8960-soundcard/1.0"; then
+# Check if DKMS module was installed (separate exit code from grep parsing)
+dkms_val_rc=0
+dkms_val_out="$(dkms status 2>&1)" || dkms_val_rc=$?
+if [ "$dkms_val_rc" -ne 0 ]; then
+    echo "[FAIL] dkms status failed (exit $dkms_val_rc): $dkms_val_out"
+    validation_errors=$((validation_errors + 1))
+elif printf '%s\n' "$dkms_val_out" | grep -q "wm8960-soundcard/1.0"; then
     echo "[PASS] DKMS module installed"
 else
     echo "[FAIL] DKMS module not found"
