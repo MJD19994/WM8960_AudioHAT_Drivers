@@ -1,0 +1,75 @@
+language: en-US
+reviews:
+  profile: assertive
+  high_level_summary: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+      - testing
+  path_filters:
+    # snd-aloop is verbatim Linux kernel source (GPL-2.0-or-later) used as a
+    # DKMS fallback when the running kernel doesn't ship snd-aloop as a
+    # built-in module. We don't maintain it — fixes belong upstream in the
+    # kernel tree, not here — so reviews of these files would just produce
+    # churn against the kernel's own conventions.
+    - "!dkms/snd-aloop/**"
+  path_instructions:
+    - path: "kernel_module/**"
+      instructions: >
+        Patched WM8960 codec driver and machine driver (forked from mainline
+        Linux snd_soc_wm8960). The hardcoded clk_id = WM8960_SYSCLK_PLL and
+        freq_in = 24000000 in wm8960_set_dai_sysclk are intentional and not
+        configurable — every supported HAT (Keyestudio, Waveshare, Seeed
+        ReSpeaker 2-Mic) uses the same 24 MHz onboard crystal on the codec's
+        MCLK pin with no SoC MCLK wired in. Do not suggest making these DT
+        properties or runtime-configurable. Review for kernel coding style,
+        memory safety, refcount correctness (especially of_node_put paths),
+        error handling, and ALSA/ASoC API correctness across kernel versions
+        6.6 through 6.18+.
+    - path: "tools/echo-cancel/**"
+      instructions: >
+        GPL-3.0-or-later echo cancellation tools — SpeexDSP engine in ec.c
+        and the WebRTC AEC3 engine in ec_webrtc.cpp. The device name
+        plughw:wm8960soundcard and any "Raspberry Pi" text in comments are
+        intentional Pi-specific values — don't flag them as inconsistencies
+        with the Armbian sister repo.
+    - path: "**/*.sh"
+      instructions: >
+        Install, uninstall, and runtime service scripts for Raspberry Pi OS
+        (Trixie, kernel 6.12.x) on 40-pin Pi SBCs (primary test target Pi
+        Zero 2W). Review for POSIX/bash correctness, proper quoting, error
+        handling around dkms and systemd, separation of dkms exit codes from
+        grep parsing (broken DKMS state must not look like "module not
+        registered"), and safe use of root operations on shared system
+        directories. Drop-in files we install in shared system directories
+        (/etc/alsa/conf.d, /etc/modules-load.d, /etc/pipewire, etc.) must
+        carry a "# wm8960-managed" tag so uninstall sweeps remove only files
+        we own. Output that may reach a serial console or SSH client must be
+        ASCII-only — em-dashes and other Unicode punctuation should be
+        flagged.
+    - path: "**/*.c"
+      instructions: >
+        Linux-kernel and user-space C code. Review for kernel coding style
+        (where applicable), memory safety, refcount correctness, proper
+        error propagation, and resource cleanup across all error paths.
+    - path: "**/*.cpp"
+      instructions: >
+        User-space C++ code (WebRTC AEC3 echo cancellation). Review for
+        modern C++ practices, ALSA API usage, RAII and unified resource
+        cleanup across all error paths, signal-safety in handlers, and
+        correct buffer alignment for the 10 ms WebRTC processing frame.
+  tools:
+    shellcheck:
+      enabled: true
+    cppcheck:
+      enabled: true
+    checkmake:
+      enabled: true
+    yamllint:
+      enabled: true
+    actionlint:
+      enabled: true
+    gitleaks:
+      enabled: true
