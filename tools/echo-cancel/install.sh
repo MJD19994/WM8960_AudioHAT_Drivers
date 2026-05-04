@@ -68,7 +68,13 @@ if [ "$UNINSTALL" -eq 1 ]; then
             aloop_still_registered=1
             log "Warning: could not query DKMS for snd-aloop (exit $aloop_status_rc); keeping source tree"
         elif printf '%s\n' "$aloop_status_out" | grep -q .; then
-            dkms remove snd-aloop/1.0 --all 2>/dev/null || aloop_still_registered=1
+            # Surface the dkms remove output so the user can see *why* it
+            # failed (broken kernel build env, locked module, etc.) instead
+            # of getting a generic "Echo canceller uninstalled" success line.
+            if ! dkms remove snd-aloop/1.0 --all; then
+                aloop_still_registered=1
+                log "Warning: 'dkms remove snd-aloop/1.0 --all' failed; the snd-aloop DKMS module will persist across kernel upgrades"
+            fi
         fi
     fi
     if [ "$aloop_still_registered" -eq 0 ]; then
@@ -77,7 +83,11 @@ if [ "$UNINSTALL" -eq 1 ]; then
         log "Skipping /usr/src/snd-aloop-1.0 removal because DKMS may still reference it"
     fi
     systemctl daemon-reload
-    log "Echo canceller uninstalled"
+    if [ "$aloop_still_registered" -ne 0 ]; then
+        log "Echo canceller partially uninstalled (snd-aloop DKMS module not removed; see warning above)"
+    else
+        log "Echo canceller uninstalled"
+    fi
     exit 0
 fi
 
@@ -218,7 +228,15 @@ fi
 
 systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}"
-systemctl start "${SERVICE_NAME}"
+# `set -e` would otherwise abort the install before the post-install
+# usage block prints. The unit declares Requires=wm8960-soundcard.service,
+# so a fresh image where wm8960-soundcard hasn't activated yet (e.g.
+# install run before the first reboot after the main installer) makes
+# this start fail legitimately. Treat it as a warning and continue so
+# the user still sees the usage and uninstall guidance below.
+if ! systemctl start "${SERVICE_NAME}"; then
+    log "Warning: '${SERVICE_NAME}' did not start immediately. This is usually a missing dependency on a freshly imaged Pi — reboot or run 'systemctl status ${SERVICE_NAME}' to investigate."
+fi
 
 log ""
 log "Echo canceller ($ENGINE) installed and running!"
