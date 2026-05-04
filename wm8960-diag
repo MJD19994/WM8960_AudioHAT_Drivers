@@ -22,6 +22,7 @@ section() {
 echo "WM8960 Audio HAT Diagnostic Report"
 echo "Generated: $(date)"
 echo "Driver version: ${WM8960_VERSION}"
+echo "WARNING: this report contains hostname, kernel logs, file paths, and audio-server details. Redact sensitive values before posting publicly (full guidance at end of report)."
 
 section "System Info"
 echo "Hostname: $(hostname)"

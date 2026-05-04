@@ -260,7 +260,7 @@ Common issues are documented in **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING
 
 ## License
 
-This repository contains code under four licenses, reflecting the origin of each component. These components are distributed separately (see [docs/LICENSING.md](docs/LICENSING.md) for details). If you are redistributing combined artifacts, review license obligations for your specific distribution model.
+This repository ships four top-level license tiers, one per top-level component, reflecting the origin of each. The `tools/echo-cancel/` directory additionally vendors a BSD-licensed PortAudio ring buffer (`pa_ringbuffer.*`, `pa_memorybarrier.h`) which retains its own header — this is GPL-compatible and is bundled inside the GPL-3.0-or-later tier rather than counted separately. These components are distributed separately (see [docs/LICENSING.md](docs/LICENSING.md) for details); if you are redistributing combined artifacts, review license obligations for your specific distribution model.
 
 | Component | License | Why |
 |-----------|---------|-----|
