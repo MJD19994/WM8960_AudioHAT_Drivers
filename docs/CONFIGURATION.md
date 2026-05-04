@@ -19,7 +19,7 @@ The WM8960 driver requires specific settings in `/boot/firmware/config.txt` (or 
 
 ### Minimum Required Settings
 
-Your config.txt must have the following in the `[all]` section (or at least not in a platform-specific section):
+Your config.txt must have the following in the `[all]` section. The installer adds them there and the validation step looks for them there — placing them under a platform-specific section (e.g. `[pi4]`, `[cm4]`) will cause re-runs to report the install as broken.
 
 ```text
 # Required: Enable I2C interface for codec communication

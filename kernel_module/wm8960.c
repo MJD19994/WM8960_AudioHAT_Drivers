@@ -1202,12 +1202,13 @@ static int wm8960_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
 	 * crystal on the codec's MCLK pin, with NO MCLK connection from the
 	 * Pi SoC. The I2S controller only drives BCLK/LRCLK.
 	 *
-	 * The mainline wm8960 driver expects userspace (the machine driver)
-	 * to call snd_soc_dai_set_sysclk() with a valid clk_id+freq pair. On
-	 * these HATs, the simple-audio-card machine driver doesn't know what
-	 * to pass — there's no DT clock-frequency property wired up — so it
-	 * calls us with zero/defaults and the mainline driver then bails out
-	 * with "No MCLK configured".
+	 * The mainline wm8960 driver's default clock source is MCLK, and its
+	 * configure_clocking path errors out when clk_id selects MCLK but no
+	 * MCLK clock has been wired in — the symptom users see is the
+	 * "No MCLK configured" bailout. simple-audio-card on these HATs
+	 * doesn't supply a real MCLK clock (the DT clock is a placeholder
+	 * required by the binding), so the mainline default path is broken
+	 * here.
 	 *
 	 * Our fix: always run the codec in PLL mode and tell the PLL the
 	 * input is 24 MHz from the onboard crystal (freq_in = 24000000 below).

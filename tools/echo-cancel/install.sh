@@ -44,11 +44,11 @@ if [ "$UNINSTALL" -eq 1 ]; then
     rm -f /usr/local/bin/wm8960-ec
     rm -f /usr/local/bin/wm8960-ec-webrtc
     rm -f /tmp/ec.input /tmp/ec.output
-    if grep -q "wm8960-managed" /etc/alsa/conf.d/50-wm8960-aec.conf 2>/dev/null; then
-        rm -f /etc/alsa/conf.d/50-wm8960-aec.conf
-    fi
     if grep -q "wm8960-managed" /etc/alsa/conf.d/50-aec.conf 2>/dev/null; then
-        rm -f /etc/alsa/conf.d/50-aec.conf  # clean up legacy name (only if we own it)
+        rm -f /etc/alsa/conf.d/50-aec.conf
+    fi
+    if grep -q "wm8960-managed" /etc/alsa/conf.d/50-wm8960-aec.conf 2>/dev/null; then
+        rm -f /etc/alsa/conf.d/50-wm8960-aec.conf  # clean up legacy name (only if we own it)
     fi
     if grep -q "wm8960-managed" /etc/modules-load.d/wm8960-snd-aloop.conf 2>/dev/null; then
         rm -f /etc/modules-load.d/wm8960-snd-aloop.conf
@@ -131,9 +131,32 @@ MODEOF
         {
             echo "# wm8960-managed"
             cat "${SCRIPT_DIR}/configs/alsa-aec.conf"
-        } > /etc/alsa/conf.d/50-wm8960-aec.conf
+        } > /etc/alsa/conf.d/50-aec.conf
+        # Drop a previous prefixed-name install if still present so we
+        # don't end up with two competing AEC drop-ins active at once.
+        if [ -f /etc/alsa/conf.d/50-wm8960-aec.conf ] && \
+           grep -q "wm8960-managed" /etc/alsa/conf.d/50-wm8960-aec.conf 2>/dev/null; then
+            rm -f /etc/alsa/conf.d/50-wm8960-aec.conf
+        fi
         log "ALSA AEC config installed"
     fi
+fi
+
+# --- speex install: clean up stale WebRTC drop-ins from a prior run ---
+# Re-running install.sh as `speex` after a previous webrtc install must not
+# leave the AEC ALSA drop-in or snd-aloop persistence behind, otherwise
+# applications keep being routed through stale loopback plumbing while the
+# active service is now FIFO-based.
+if [ "$ENGINE" = "speex" ]; then
+    for f in /etc/alsa/conf.d/50-aec.conf \
+             /etc/alsa/conf.d/50-wm8960-aec.conf \
+             /etc/modules-load.d/wm8960-snd-aloop.conf \
+             /etc/modules-load.d/snd-aloop.conf; do
+        if [ -f "$f" ] && grep -q "wm8960-managed" "$f" 2>/dev/null; then
+            rm -f "$f"
+            log "Removed stale WebRTC drop-in: $f"
+        fi
+    done
 fi
 
 # --- Build ---
