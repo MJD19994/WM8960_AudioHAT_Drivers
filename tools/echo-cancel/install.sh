@@ -234,12 +234,18 @@ systemctl enable "${SERVICE_NAME}"
 # install run before the first reboot after the main installer) makes
 # this start fail legitimately. Treat it as a warning and continue so
 # the user still sees the usage and uninstall guidance below.
+start_status=0
 if ! systemctl start "${SERVICE_NAME}"; then
+    start_status=1
     log "Warning: '${SERVICE_NAME}' did not start immediately. This is usually a missing dependency on a freshly imaged Pi — reboot or run 'systemctl status ${SERVICE_NAME}' to investigate."
 fi
 
 log ""
-log "Echo canceller ($ENGINE) installed and running!"
+if [ "$start_status" -eq 0 ]; then
+    log "Echo canceller ($ENGINE) installed and running!"
+else
+    log "Echo canceller ($ENGINE) installed (start pending — see warning above)."
+fi
 log ""
 if [ "$ENGINE" = "webrtc" ]; then
     log "Usage:"

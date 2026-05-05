@@ -80,7 +80,14 @@ fi
 ls -la /etc/wm8960-soundcard/ 2>/dev/null || echo "/etc/wm8960-soundcard/ (not found)"
 
 section "Systemd Service"
-systemctl status wm8960-soundcard.service --no-pager 2>/dev/null || echo "(service not found)"
+# `systemctl status` exits non-zero for failed/inactive units as well
+# as for missing ones, so check unit existence separately to avoid the
+# misleading "(service not found)" line on a unit that's just failed.
+if systemctl cat wm8960-soundcard.service >/dev/null 2>&1; then
+    systemctl status wm8960-soundcard.service --no-pager 2>/dev/null || true
+else
+    echo "(service not found — unit file not installed)"
+fi
 
 section "Service Log (last 30 lines)"
 if [ -f /var/log/wm8960-soundcard.log ]; then

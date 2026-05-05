@@ -73,7 +73,7 @@ The installation script performs 13 steps:
 
 A pre-flight check warns if a kernel update is pending reboot.
 
-> **Note:** The script does NOT add `dtoverlay=wm8960-soundcard` to config.txt — the overlay is loaded dynamically by the service for reliability. See [CONFIGURATION.md](CONFIGURATION.md#dynamic-loading) for details.
+> **Note:** The script does NOT add `dtoverlay=wm8960-soundcard` to config.txt — the overlay is loaded dynamically by the service for reliability. See [CONFIGURATION.md](CONFIGURATION.md#dynamic-loading-explanation) for details.
 
 ### 5. Reboot
 

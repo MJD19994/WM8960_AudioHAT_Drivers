@@ -123,20 +123,28 @@ ensure_dkms_module() {
 
 ensure_dkms_module || log_message "WARNING: DKMS auto-rebuild failed - audio may not work (see errors above)"
 
-# Verify I2C is enabled (should be done via config.txt by install script)
-log_message "Verifying I2C interface is available..."
-if ! i2cdetect -y 1 >/dev/null 2>&1; then
-  log_error_exit "I2C bus not available. Please add 'dtparam=i2c_arm=on' to config.txt [all] section (usually /boot/firmware/config.txt or /boot/config.txt) and reboot." 2
-fi
-log_message "I2C interface verified"
-
-# Load kernel modules
+# Load i2c-dev FIRST so /dev/i2c-1 exists before we probe. Probing
+# i2cdetect before this point can fail with a misleading "I2C disabled"
+# error on systems where i2c-dev isn't auto-loaded — even though the
+# real fix is just to load the module.
 log_message "Loading i2c-dev kernel module..."
 if ! modprobe i2c-dev; then
   log_error_exit "Failed to load i2c-dev kernel module" 2
 fi
 log_message "i2c-dev module loaded successfully"
 sleep 5
+
+# Verify the I2C controller itself is enabled in config.txt. /dev/i2c-1
+# only exists if BOTH i2c-dev is loaded (above) AND dtparam=i2c_arm=on
+# is present, so distinguish the two cases for an accurate error.
+log_message "Verifying I2C interface is available..."
+if [ ! -e /dev/i2c-1 ]; then
+  log_error_exit "I2C controller not enabled. Please add 'dtparam=i2c_arm=on' to config.txt [all] section (usually /boot/firmware/config.txt or /boot/config.txt) and reboot." 2
+fi
+if ! i2cdetect -y 1 >/dev/null 2>&1; then
+  log_error_exit "I2C bus probe failed even though /dev/i2c-1 exists. Check kernel logs for I2C controller errors." 2
+fi
+log_message "I2C interface verified"
 
 # Detect WM8960 codec on I2C bus 1, address 0x1a
 log_message "Detecting WM8960 codec on I2C bus 1 at address 0x1a..."
@@ -172,8 +180,17 @@ if [ "x${is_1a}" != "x" ]; then
   fi
   sleep 1
   
-  # Safer ALSA config management - backup before removing
+  # Safer ALSA config management — verify replacements exist BEFORE we
+  # touch the live config, so a missing/corrupt /etc/wm8960-soundcard/
+  # can't leave the box without any ALSA config until manual recovery.
   log_message "Managing ALSA configuration files..."
+  if [ ! -f /etc/wm8960-soundcard/asound.conf ]; then
+    log_error_exit "Source file /etc/wm8960-soundcard/asound.conf not found — refusing to touch live ALSA config" 4
+  fi
+  if [ ! -f /etc/wm8960-soundcard/wm8960_asound.state ]; then
+    log_error_exit "Source file /etc/wm8960-soundcard/wm8960_asound.state not found — refusing to touch live ALSA config" 4
+  fi
+
   if [ -f /etc/asound.conf ] && [ ! -L /etc/asound.conf ]; then
     log_message "Backing up existing /etc/asound.conf"
     if ! cp /etc/asound.conf "/etc/asound.conf.backup.$(date +%Y%m%d_%H%M%S)"; then
@@ -186,22 +203,14 @@ if [ "x${is_1a}" != "x" ]; then
       log_message "WARNING: Failed to create backup of /var/lib/alsa/asound.state (continuing anyway)"
     fi
   fi
-  
+
   # Remove old ALSA config files (use -f to avoid errors if files don't exist)
   rm -f /etc/asound.conf
   rm -f /var/lib/alsa/asound.state
   log_message "Removed old ALSA configuration files"
-  
+
   # Create symlinks to new config files (use -sf to safely overwrite)
   log_message "Creating wm8960-soundcard configuration symlinks..."
-  
-  # Verify target files exist before creating symlinks
-  if [ ! -f /etc/wm8960-soundcard/asound.conf ]; then
-    log_error_exit "Source file /etc/wm8960-soundcard/asound.conf not found" 4
-  fi
-  if [ ! -f /etc/wm8960-soundcard/wm8960_asound.state ]; then
-    log_error_exit "Source file /etc/wm8960-soundcard/wm8960_asound.state not found" 4
-  fi
   
   # Create symlinks with force flag to safely overwrite existing ones
   if ! ln -sf /etc/wm8960-soundcard/asound.conf /etc/asound.conf; then
