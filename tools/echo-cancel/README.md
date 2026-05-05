@@ -99,7 +99,7 @@ sox input.wav -r 48000 -c 1 -b 16 -e signed -t raw - > /tmp/ec.input
 -o PCM            Playback PCM device (default: default)
 -r rate           Sample rate (default: 16000)
 -c channels       Recording channels (default: 2)
--b size           Ring buffer size in bytes (default: 262144)
+-b size           Ring buffer size (default: 16384)
 -d delay          System delay between playback and capture in frames (default: 0)
 -f filter_length  AEC filter length in samples (default: 4096)
 -s                Save debug audio to /tmp/{recording,playback,out}.raw
