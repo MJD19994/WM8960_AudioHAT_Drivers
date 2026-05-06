@@ -104,6 +104,19 @@ fi
 
 # --- Load snd-aloop for WebRTC ---
 if [ "$ENGINE" = "webrtc" ]; then
+    # Validate the ALSA AEC drop-in target FIRST. If a user-owned
+    # /etc/alsa/conf.d/50-wm8960-aec.conf already exists without our
+    # marker we abort here — before touching the kernel module, the
+    # DKMS package, or /etc/modules-load.d — so an unmanaged-target
+    # abort leaves zero side effects on disk.
+    aec_target=/etc/alsa/conf.d/50-wm8960-aec.conf
+    if [ -f "${SCRIPT_DIR}/configs/alsa-aec.conf" ] && \
+       [ -f "$aec_target" ] && \
+       ! grep -q "wm8960-managed" "$aec_target" 2>/dev/null; then
+        log_error "$aec_target exists and is not wm8960-managed — refusing to overwrite. Move or remove it, then re-run."
+        exit 1
+    fi
+
     if ! lsmod | grep -q snd_aloop; then
         # Try loading the built-in module first (RPi OS often has CONFIG_SND_ALOOP=m)
         if modprobe snd-aloop 2>/dev/null; then
@@ -112,7 +125,16 @@ if [ "$ENGINE" = "webrtc" ]; then
             log "Built-in snd-aloop not available, building via DKMS..."
             rm -rf /usr/src/snd-aloop-1.0
             cp -r "$ALOOP_DKMS_SRC" /usr/src/snd-aloop-1.0
-            dkms remove snd-aloop/1.0 --all 2>/dev/null || true
+            # Only call 'dkms remove' if the package is actually
+            # registered, and treat its failure as fatal so a stuck
+            # remove doesn't get silently swallowed and immediately
+            # collide with 'dkms add' under set -e.
+            if dkms status snd-aloop/1.0 2>/dev/null | grep -q .; then
+                if ! dkms remove snd-aloop/1.0 --all; then
+                    log_error "Failed to remove existing snd-aloop DKMS registration (status above)"
+                    exit 1
+                fi
+            fi
             dkms add snd-aloop/1.0
             dkms install snd-aloop/1.0
             modprobe snd-aloop || {
@@ -135,28 +157,22 @@ snd-aloop
 MODEOF
     fi
 
-    # Install ALSA AEC config under a wm8960-prefixed name so we can't
-    # silently clobber a user's own /etc/alsa/conf.d/50-aec.conf if they
-    # happen to have one. If a file already exists at our target path
-    # without our # wm8960-managed marker, abort rather than overwrite.
+    # Install ALSA AEC config under a wm8960-prefixed name. The
+    # ownership/marker check happened up front (above) so this branch
+    # is now just the safe write.
     if [ -f "${SCRIPT_DIR}/configs/alsa-aec.conf" ]; then
-        target=/etc/alsa/conf.d/50-wm8960-aec.conf
-        if [ -f "$target" ] && ! grep -q "wm8960-managed" "$target" 2>/dev/null; then
-            log_error "$target exists and is not wm8960-managed — refusing to overwrite. Move or remove it, then re-run."
-            exit 1
-        fi
         mkdir -p /etc/alsa/conf.d
         {
             echo "# wm8960-managed"
             cat "${SCRIPT_DIR}/configs/alsa-aec.conf"
-        } > "$target"
+        } > "$aec_target"
         # Drop a previous unprefixed-name install if still present so we
         # don't end up with two competing AEC drop-ins active at once.
         if [ -f /etc/alsa/conf.d/50-aec.conf ] && \
            grep -q "wm8960-managed" /etc/alsa/conf.d/50-aec.conf 2>/dev/null; then
             rm -f /etc/alsa/conf.d/50-aec.conf
         fi
-        log "ALSA AEC config installed at $target"
+        log "ALSA AEC config installed at $aec_target"
     fi
 fi
 

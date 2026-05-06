@@ -47,6 +47,7 @@ The install script adds `dtoverlay=i2s-mmap`, which is required for the I2S memo
 - Service initialization failures related to I2S
 
 **To resolve:**
+
 ```bash
 sudo nano /boot/firmware/config.txt
 # Comment out: # dtoverlay=i2s-mmap  # Disabled due to conflict
@@ -213,6 +214,7 @@ Press **F6** to select the WM8960 sound card, then adjust:
 - Input source selection
 
 Save with:
+
 ```bash
 sudo alsactl store
 ```
@@ -238,6 +240,7 @@ sudo wm8960-volume <preset>
 | `show` | Display current output, input, and processing levels |
 
 **Examples:**
+
 ```bash
 sudo wm8960-volume speakers      # Set up for speaker playback
 sudo wm8960-volume voice         # Optimize for voice assistants
@@ -288,24 +291,28 @@ For consumer devices or convenience, enable automatic saving of ALSA mixer setti
 - Automatically clean up old backup files (keeps last 5)
 
 **Enable auto-save:**
+
 ```bash
 sudo systemctl enable wm8960-alsa-store.timer
 sudo systemctl start wm8960-alsa-store.timer
 ```
 
 **Disable auto-save:**
+
 ```bash
 sudo systemctl stop wm8960-alsa-store.timer
 sudo systemctl disable wm8960-alsa-store.timer
 ```
 
 **Check status:**
+
 ```bash
 sudo systemctl status wm8960-alsa-store.timer
 sudo journalctl -u wm8960-alsa-store.service -n 50
 ```
 
 **Manually trigger a save:**
+
 ```bash
 sudo systemctl start wm8960-alsa-store.service
 ```
@@ -320,6 +327,7 @@ The system automatically manages backup files:
 Backups are stored in `/var/lib/alsa/` as `asound.state.backup.YYYYMMDD_HHMMSS`.
 
 You can safely delete old backups manually:
+
 ```bash
 # List all backups
 ls -lh /var/lib/alsa/asound.state.backup.*
@@ -333,27 +341,32 @@ find /var/lib/alsa/ -name "asound.state.backup.*" -mtime +30 -delete
 ## Service Management
 
 **Enable service to start on boot** (enabled by default after install):
+
 ```bash
 sudo systemctl enable wm8960-soundcard.service
 ```
 
 **Disable service:**
+
 ```bash
 sudo systemctl disable wm8960-soundcard.service
 ```
 
 **Restart after configuration changes:**
+
 ```bash
 sudo systemctl restart wm8960-soundcard.service
 ```
 
 **View service status and recent output:**
+
 ```bash
 sudo systemctl status wm8960-soundcard.service
 sudo journalctl -u wm8960-soundcard.service -n 50
 ```
 
 **View detailed service log** (timestamped, includes DKMS rebuild diagnostics):
+
 ```bash
 sudo cat /var/log/wm8960-soundcard.log
 ```

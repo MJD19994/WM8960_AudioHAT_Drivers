@@ -218,20 +218,34 @@ echo "==============================================="
 echo ""
 
 if [ "$ec_components_detected" -eq 1 ]; then
+    # Build the "not touched" list dynamically so a Speex-only install
+    # doesn't see WebRTC-specific bullets (snd-aloop / 50-wm8960-aec.conf)
+    # that don't apply to it.
     echo "==============================================="
     echo -e "${YELLOW}WARNING:${NC} Optional echo-cancel components detected"
     echo "==============================================="
-    echo "The optional WebRTC AEC tooling has its own uninstaller. Run it to"
+    echo "The optional echo-cancel tooling has its own uninstaller. Run it to"
     echo "remove its components:"
     echo ""
     echo "    sudo bash tools/echo-cancel/install.sh --uninstall"
     echo ""
     echo "This main uninstaller does NOT touch:"
-    echo "  - /usr/local/bin/wm8960-ec, /usr/local/bin/wm8960-ec-webrtc"
-    echo "  - /etc/systemd/system/wm8960-echo-cancel.service"
-    echo "  - /etc/alsa/conf.d/50-wm8960-aec.conf"
-    echo "  - /etc/modules-load.d/wm8960-snd-aloop.conf"
-    echo "  - snd-aloop DKMS module (when built via the EC fallback)"
+    if [ -e /usr/local/bin/wm8960-ec ]; then
+        echo "  - /usr/local/bin/wm8960-ec (Speex engine binary)"
+    fi
+    if [ -e /usr/local/bin/wm8960-ec-webrtc ]; then
+        echo "  - /usr/local/bin/wm8960-ec-webrtc (WebRTC engine binary)"
+    fi
+    if [ -e /etc/systemd/system/wm8960-echo-cancel.service ]; then
+        echo "  - /etc/systemd/system/wm8960-echo-cancel.service"
+    fi
+    if [ -e /etc/alsa/conf.d/50-wm8960-aec.conf ]; then
+        echo "  - /etc/alsa/conf.d/50-wm8960-aec.conf (WebRTC AEC drop-in)"
+    fi
+    if [ -e /etc/modules-load.d/wm8960-snd-aloop.conf ]; then
+        echo "  - /etc/modules-load.d/wm8960-snd-aloop.conf (WebRTC snd-aloop persist)"
+        echo "  - snd-aloop DKMS module (when built via the EC fallback)"
+    fi
     echo ""
     echo "(this is informational - uninstall continues normally)"
     echo "==============================================="
