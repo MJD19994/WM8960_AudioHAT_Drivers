@@ -110,7 +110,7 @@ apt-get install -y "linux-headers-$(uname -r)"
 
 echo ""
 echo "Step 3/13: Installing required packages..."
-apt-get install -y dkms git i2c-tools alsa-utils libasound2-plugins
+apt-get install -y dkms i2c-tools alsa-utils libasound2-plugins
 
 echo ""
 echo "Step 3a/13: Configuring I2C interface in config.txt..."

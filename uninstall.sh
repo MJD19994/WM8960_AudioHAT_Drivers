@@ -9,10 +9,37 @@ echo "==============================================="
 echo ""
 
 # Check if running as root
-if [ "$EUID" -ne 0 ]; then 
+if [ "$EUID" -ne 0 ]; then
     echo "Error: This script must be run as root (use sudo)"
     exit 1
 fi
+
+# ANSI colors for prominent notices, gated on stdout being a TTY so logs
+# and pipes stay clean (same pattern test-audio.sh uses).
+if [ -t 1 ]; then
+    YELLOW='\033[1;33m'
+    NC='\033[0m'
+else
+    YELLOW=''
+    NC=''
+fi
+
+# Detect the optional echo-cancel install. tools/echo-cancel/install.sh
+# deploys its own components that this uninstaller does not own and
+# won't remove; we surface that to the user in the post-uninstall
+# "items not removed" notice further down rather than blocking here,
+# since the EC uninstaller is independent and can be run before or
+# after this one in either order.
+ec_components_detected=0
+for marker in /usr/local/bin/wm8960-ec /usr/local/bin/wm8960-ec-webrtc \
+              /etc/systemd/system/wm8960-echo-cancel.service \
+              /etc/alsa/conf.d/50-wm8960-aec.conf \
+              /etc/modules-load.d/wm8960-snd-aloop.conf; do
+    if [ -e "$marker" ]; then
+        ec_components_detected=1
+        break
+    fi
+done
 
 echo "Step 1/11: Stopping and disabling systemd service..."
 systemctl stop wm8960-soundcard.service 2>/dev/null || echo "Service not running"
@@ -76,9 +103,14 @@ else
     echo "No previous ALSA state backup to restore"
 fi
 
-rm -f /etc/asound.conf.backup.*
-rm -f /var/lib/alsa/asound.state.backup.*
-echo "ALSA backup cleanup complete"
+# Preserve any remaining ALSA backups as a manual recovery safety net.
+# Boot-time count-capped cleanup in wm8960-soundcard.sh kept the count
+# bounded during normal operation; once the boot service is gone there's
+# nothing to bound it, and wiping every backup right after a single restore
+# would erase the user's only fallback if the restored config turns out to
+# be wrong. Users can rm /etc/asound.conf.backup.* and
+# /var/lib/alsa/asound.state.backup.* manually if they want the disk back.
+echo "ALSA backups preserved at /etc/asound.conf.backup.* and /var/lib/alsa/asound.state.backup.* (delete manually if not needed)"
 
 echo ""
 echo "Step 5/11: Removing PipeWire and PulseAudio configurations..."
@@ -184,6 +216,28 @@ echo "==============================================="
 echo "Uninstallation Complete!"
 echo "==============================================="
 echo ""
+
+if [ "$ec_components_detected" -eq 1 ]; then
+    echo "==============================================="
+    echo -e "${YELLOW}WARNING:${NC} Optional echo-cancel components detected"
+    echo "==============================================="
+    echo "The optional WebRTC AEC tooling has its own uninstaller. Run it to"
+    echo "remove its components:"
+    echo ""
+    echo "    sudo bash tools/echo-cancel/install.sh --uninstall"
+    echo ""
+    echo "This main uninstaller does NOT touch:"
+    echo "  - /usr/local/bin/wm8960-ec, /usr/local/bin/wm8960-ec-webrtc"
+    echo "  - /etc/systemd/system/wm8960-echo-cancel.service"
+    echo "  - /etc/alsa/conf.d/50-wm8960-aec.conf"
+    echo "  - /etc/modules-load.d/wm8960-snd-aloop.conf"
+    echo "  - snd-aloop DKMS module (when built via the EC fallback)"
+    echo ""
+    echo "(this is informational - uninstall continues normally)"
+    echo "==============================================="
+    echo ""
+fi
+
 echo "The following items were removed:"
 echo "  - Lines tagged with '# wm8960-managed' in config.txt"
 echo "  - WM8960-related overlay and comment lines"
