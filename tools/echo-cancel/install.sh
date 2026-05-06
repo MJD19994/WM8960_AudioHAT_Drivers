@@ -44,11 +44,11 @@ if [ "$UNINSTALL" -eq 1 ]; then
     rm -f /usr/local/bin/wm8960-ec
     rm -f /usr/local/bin/wm8960-ec-webrtc
     rm -f /tmp/ec.input /tmp/ec.output
-    if grep -q "wm8960-managed" /etc/alsa/conf.d/50-aec.conf 2>/dev/null; then
-        rm -f /etc/alsa/conf.d/50-aec.conf
-    fi
     if grep -q "wm8960-managed" /etc/alsa/conf.d/50-wm8960-aec.conf 2>/dev/null; then
-        rm -f /etc/alsa/conf.d/50-wm8960-aec.conf  # clean up legacy name (only if we own it)
+        rm -f /etc/alsa/conf.d/50-wm8960-aec.conf
+    fi
+    if grep -q "wm8960-managed" /etc/alsa/conf.d/50-aec.conf 2>/dev/null; then
+        rm -f /etc/alsa/conf.d/50-aec.conf  # clean up legacy name (only if we own it)
     fi
     if grep -q "wm8960-managed" /etc/modules-load.d/wm8960-snd-aloop.conf 2>/dev/null; then
         rm -f /etc/modules-load.d/wm8960-snd-aloop.conf
@@ -135,20 +135,28 @@ snd-aloop
 MODEOF
     fi
 
-    # Install ALSA AEC config
+    # Install ALSA AEC config under a wm8960-prefixed name so we can't
+    # silently clobber a user's own /etc/alsa/conf.d/50-aec.conf if they
+    # happen to have one. If a file already exists at our target path
+    # without our # wm8960-managed marker, abort rather than overwrite.
     if [ -f "${SCRIPT_DIR}/configs/alsa-aec.conf" ]; then
+        target=/etc/alsa/conf.d/50-wm8960-aec.conf
+        if [ -f "$target" ] && ! grep -q "wm8960-managed" "$target" 2>/dev/null; then
+            log_error "$target exists and is not wm8960-managed — refusing to overwrite. Move or remove it, then re-run."
+            exit 1
+        fi
         mkdir -p /etc/alsa/conf.d
         {
             echo "# wm8960-managed"
             cat "${SCRIPT_DIR}/configs/alsa-aec.conf"
-        } > /etc/alsa/conf.d/50-aec.conf
-        # Drop a previous prefixed-name install if still present so we
+        } > "$target"
+        # Drop a previous unprefixed-name install if still present so we
         # don't end up with two competing AEC drop-ins active at once.
-        if [ -f /etc/alsa/conf.d/50-wm8960-aec.conf ] && \
-           grep -q "wm8960-managed" /etc/alsa/conf.d/50-wm8960-aec.conf 2>/dev/null; then
-            rm -f /etc/alsa/conf.d/50-wm8960-aec.conf
+        if [ -f /etc/alsa/conf.d/50-aec.conf ] && \
+           grep -q "wm8960-managed" /etc/alsa/conf.d/50-aec.conf 2>/dev/null; then
+            rm -f /etc/alsa/conf.d/50-aec.conf
         fi
-        log "ALSA AEC config installed"
+        log "ALSA AEC config installed at $target"
     fi
 fi
 

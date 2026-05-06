@@ -157,7 +157,7 @@ preset_voice() {
     cset 'Right Output Mixer PCM Playback Switch' on
 
     echo "  Done. Voice capture with ALC, noise gate, and HPF enabled."
-    echo "  Tip: For best results, pair with the standalone echo-cancel installer from this repository (tools/echo-cancel/install.sh)."
+    echo "  Tip: For best results, pair with the echo-cancel installer from this repository."
 }
 
 preset_max() {

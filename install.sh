@@ -363,22 +363,32 @@ echo "Step 7/13: Configuring I2S interface in $CONFIG_FILE..."
 # Note: In rare cases, this may conflict with custom audio setups
 # If you experience audio issues after installation, try commenting out dtoverlay=i2s-mmap in config.txt
 
-# Comment out an active dtparam=i2s=on in [all] if present. We preserve the
-# user's original value in commented form WITHOUT a wm8960-managed tag, so
-# the uninstall's wm8960-managed removal sweep leaves the commented line
-# behind and the user can restore it by removing the leading '# '.
-if in_all_section "^[[:space:]]*dtparam=i2s=on"; then
+# Comment out every active dtparam=i2s=on in [all]. We preserve each user
+# value in commented form WITHOUT a wm8960-managed tag, so the uninstall's
+# wm8960-managed removal sweep leaves the commented lines behind and the
+# user can restore them by removing the leading '# '. The loop catches
+# partially-edited configs with multiple active i2s=on entries, which would
+# otherwise leave later occurrences active and reintroduce the conflict.
+i2s_safety_count=0
+while in_all_section "^[[:space:]]*dtparam=i2s=on"; do
     i2s_line=$(line_in_all_section "^[[:space:]]*dtparam=i2s=on")
-    if [ -n "$i2s_line" ]; then
-        i2s_text=$(sed -n "${i2s_line}p" "$CONFIG_FILE")
-        replacement="# ${i2s_text}  # Disabled by WM8960 installer; remove leading '# ' to restore"
-        if ! sed -i "${i2s_line}c\\${replacement}" "$CONFIG_FILE"; then
-            echo "ERROR: Failed to comment out dtparam=i2s=on in config.txt"
-            exit 1
-        fi
-        echo "Commented out dtparam=i2s=on (replaced by dtoverlay=i2s-mmap)"
+    if [ -z "$i2s_line" ]; then
+        break
     fi
-fi
+    i2s_text=$(sed -n "${i2s_line}p" "$CONFIG_FILE")
+    replacement="# ${i2s_text}  # Disabled by WM8960 installer; remove leading '# ' to restore"
+    if ! sed -i "${i2s_line}c\\${replacement}" "$CONFIG_FILE"; then
+        echo "ERROR: Failed to comment out dtparam=i2s=on in config.txt"
+        exit 1
+    fi
+    echo "Commented out dtparam=i2s=on (replaced by dtoverlay=i2s-mmap)"
+    # Belt-and-braces guard against an unexpected non-progressing loop.
+    i2s_safety_count=$((i2s_safety_count + 1))
+    if [ "$i2s_safety_count" -gt 20 ]; then
+        echo "ERROR: dtparam=i2s=on cleanup did not converge after 20 iterations"
+        exit 1
+    fi
+done
 
 # Add dtoverlay=i2s-mmap if not present in [all] section
 if ! in_all_section "^[^#]*dtoverlay=i2s-mmap"; then

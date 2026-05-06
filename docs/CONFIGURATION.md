@@ -73,8 +73,12 @@ dtoverlay=i2s-mmap # wm8960-managed
 # Check loaded overlays (should show wm8960-soundcard after service starts)
 sudo dtoverlay -l
 
-# Verify dtparam=i2c_arm appears only once (active, uncommented)
-grep -cE '^[[:space:]]*dtparam=i2c_arm' /boot/firmware/config.txt
+# Pick the active config.txt path (Pi OS Trixie+ uses /boot/firmware/,
+# older releases use /boot/)
+[ -f /boot/firmware/config.txt ] && CONFIG=/boot/firmware/config.txt || CONFIG=/boot/config.txt
+
+# Verify dtparam=i2c_arm=on appears only once (active, uncommented)
+grep -cE '^[[:space:]]*dtparam=i2c_arm=on([[:space:]]|$)' "$CONFIG"
 # Expected: 1
 ```
 
