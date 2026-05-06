@@ -157,7 +157,7 @@ preset_voice() {
     cset 'Right Output Mixer PCM Playback Switch' on
 
     echo "  Done. Voice capture with ALC, noise gate, and HPF enabled."
-    echo "  Tip: For best results, pair with software echo cancellation (see tools/echo-cancel/)."
+    echo "  Tip: For best results, pair with the standalone echo-cancel installer from this repository (tools/echo-cancel/install.sh)."
 }
 
 preset_max() {
@@ -210,20 +210,31 @@ preset_reset() {
 }
 
 show_levels() {
+    # `amixer sget` takes the simplified control name (no "Playback Volume"
+    # suffix). The driver's full-control names ('Speaker Playback Volume'
+    # etc.) only work with `amixer cget/cset` — using them with sget here
+    # would silently print nothing.
     echo "Current WM8960 mixer levels:"
     echo ""
     echo "=== Output ==="
-    amixer -c "$CARD" sget 'Playback Volume' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
-    amixer -c "$CARD" sget 'Speaker Playback Volume' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
-    amixer -c "$CARD" sget 'Headphone Playback Volume' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    echo "Playback (DAC):"
+    amixer -c "$CARD" sget 'Playback' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    echo "Speaker:"
+    amixer -c "$CARD" sget 'Speaker' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    echo "Headphone:"
+    amixer -c "$CARD" sget 'Headphone' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
     echo ""
     echo "=== Input ==="
-    amixer -c "$CARD" sget 'Capture Volume' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    echo "Capture:"
+    amixer -c "$CARD" sget 'Capture' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
     echo ""
     echo "=== Processing ==="
+    echo "ALC Function:"
     amixer -c "$CARD" sget 'ALC Function' 2>/dev/null | grep "Item0:" || true
-    amixer -c "$CARD" sget 'Noise Gate Switch' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
-    amixer -c "$CARD" sget 'ADC High Pass Filter Switch' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    echo "Noise Gate:"
+    amixer -c "$CARD" sget 'Noise Gate' 2>/dev/null | grep -E "Mono:|Left:|Right:|Item0:" || true
+    echo "ADC High Pass Filter:"
+    amixer -c "$CARD" sget 'ADC High Pass Filter' 2>/dev/null | grep -E "Mono:|Left:|Right:|Item0:" || true
 }
 
 # ---------- Main ----------

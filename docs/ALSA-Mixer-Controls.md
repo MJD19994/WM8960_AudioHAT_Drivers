@@ -52,7 +52,7 @@ amixer -c wm8960soundcard sset 'Left Input Mixer Boost Switch' on
 amixer -c wm8960soundcard sset 'Noise Gate Switch' on
 amixer -c wm8960soundcard sset 'ADC High Pass Filter Switch' on
 
-# Zero-cross mute (for click-free volume changes)
+# Zero-crossing volume transitions (click-free volume changes — NOT a mute)
 amixer -c wm8960soundcard sset 'Speaker Playback ZC Switch' on
 amixer -c wm8960soundcard sset 'Headphone Playback ZC Switch' on
 

@@ -592,7 +592,12 @@ systemctl daemon-reload
 # I2S is active. Starting it now (pre-reboot) would fail — I2C is ready but
 # the I2S overlay isn't yet, and the codec overlay would try to load against
 # a stale config. A reboot after install gives a clean path.
-systemctl enable wm8960-soundcard.service
+if ! systemctl enable wm8960-soundcard.service; then
+    echo "ERROR: Failed to enable wm8960-soundcard.service for boot."
+    echo "       Investigate with: systemctl status wm8960-soundcard.service"
+    echo "       (a malformed unit file or a busy systemd state can cause this)"
+    exit 1
+fi
 echo "Service enabled to start on boot (will run on next reboot)"
 
 echo ""

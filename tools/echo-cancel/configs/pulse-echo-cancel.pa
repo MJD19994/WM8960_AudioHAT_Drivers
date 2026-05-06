@@ -1,4 +1,5 @@
 ### WM8960 Audio HAT — Echo Cancellation via WebRTC AEC
+# wm8960-managed
 ###
 ### Creates virtual source/sink with echo cancellation for voice assistant use.
 ### Voice assistant apps should use "echo_cancelled_input" as their mic source.

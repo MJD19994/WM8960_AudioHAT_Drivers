@@ -227,7 +227,9 @@ SVCEOF
 fi
 
 systemctl daemon-reload
-systemctl enable "${SERVICE_NAME}"
+if ! systemctl enable "${SERVICE_NAME}"; then
+    log "Warning: 'systemctl enable ${SERVICE_NAME}' failed; the service won't start automatically at boot. Investigate with 'systemctl status ${SERVICE_NAME}' (often a transient bad systemd state or a manually-masked unit on re-install)."
+fi
 # `set -e` would otherwise abort the install before the post-install
 # usage block prints. The unit declares Requires=wm8960-soundcard.service,
 # so a fresh image where wm8960-soundcard hasn't activated yet (e.g.

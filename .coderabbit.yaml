@@ -8,14 +8,17 @@ reviews:
     base_branches:
       - main
       - testing
-  path_filters:
-    # snd-aloop is verbatim Linux kernel source (GPL-2.0-or-later) used as a
-    # DKMS fallback when the running kernel doesn't ship snd-aloop as a
-    # built-in module. We don't maintain it — fixes belong upstream in the
-    # kernel tree, not here — so reviews of these files would just produce
-    # churn against the kernel's own conventions.
-    - "!dkms/snd-aloop/**"
   path_instructions:
+    - path: "dkms/snd-aloop/**"
+      instructions: >
+        snd-aloop is verbatim Linux kernel source (GPL-2.0-or-later) used as
+        a DKMS fallback when the running kernel doesn't ship snd-aloop as a
+        built-in module. We do not maintain this code — fixes belong upstream
+        in the Linux kernel tree, not here. Please do NOT suggest style,
+        coding-convention, or modernization changes to these files. DO still
+        flag genuine bugs, security issues, or compatibility breakage we
+        should know about even though we'd carry the fix to upstream rather
+        than apply it locally.
     - path: "kernel_module/**"
       instructions: >
         Patched WM8960 codec driver and machine driver (forked from mainline
