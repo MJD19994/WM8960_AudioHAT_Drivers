@@ -44,7 +44,10 @@ sudo apt install git -y
 
 ### 3. Clone Repository
 
+Make sure you're in your home directory before cloning so the uninstall section below can reach the repo at `~/WM8960_AudioHAT_Drivers`:
+
 ```bash
+cd ~
 git clone https://github.com/MJD19994/WM8960_AudioHAT_Drivers.git
 cd WM8960_AudioHAT_Drivers
 ```
@@ -91,7 +94,7 @@ sudo bash install.sh --help
 |------|---------|
 | `--skip-pipewire` | Skip PipeWire/WirePlumber configuration |
 | `--skip-pulseaudio` | Skip PulseAudio configuration |
-| `--yes`, `-y` | Auto-confirm prompts (kernel warning) and skip reboot |
+| `--yes`, `-y` | Auto-confirm prompts and skip the automatic reboot prompt (manual reboot still required for the driver to take effect) |
 | `--help`, `-h` | Show usage help |
 
 ## Manual Verification

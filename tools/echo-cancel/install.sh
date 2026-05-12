@@ -113,7 +113,7 @@ if [ "$ENGINE" = "webrtc" ]; then
     if [ -f "${SCRIPT_DIR}/configs/alsa-aec.conf" ] && \
        [ -f "$aec_target" ] && \
        ! grep -q "wm8960-managed" "$aec_target" 2>/dev/null; then
-        log_error "$aec_target exists and is not wm8960-managed — refusing to overwrite. Move or remove it, then re-run."
+        log_error "$aec_target exists and is not wm8960-managed -- refusing to overwrite. Move or remove it, then re-run."
         exit 1
     fi
 

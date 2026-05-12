@@ -478,7 +478,7 @@ elif dpkg -l wireplumber 2>/dev/null | grep -q '^ii'; then
         # replaced.
         wp_target=/etc/wireplumber/wireplumber.conf.d/40-wm8960-default.conf
         if [ -f "$wp_target" ] && ! grep -q "wm8960-managed" "$wp_target" 2>/dev/null; then
-            echo "ERROR: $wp_target exists and is not wm8960-managed — refusing to overwrite. Move or remove it, then re-run."
+            echo "ERROR: $wp_target exists and is not wm8960-managed -- refusing to overwrite. Move or remove it, then re-run."
             exit 1
         fi
         cp "$SCRIPT_DIR/pipewire/wireplumber-wm8960.conf" /etc/wm8960-soundcard/
@@ -505,7 +505,7 @@ elif dpkg -l pulseaudio 2>/dev/null | grep -q '^ii' && ! dpkg -l pipewire-pulse 
         # block above.
         pa_target=/etc/pulse/default.pa.d/wm8960-default.pa
         if [ -f "$pa_target" ] && ! grep -q "wm8960-managed" "$pa_target" 2>/dev/null; then
-            echo "ERROR: $pa_target exists and is not wm8960-managed — refusing to overwrite. Move or remove it, then re-run."
+            echo "ERROR: $pa_target exists and is not wm8960-managed -- refusing to overwrite. Move or remove it, then re-run."
             exit 1
         fi
         cp "$SCRIPT_DIR/pulseaudio/pulseaudio-wm8960.pa" /etc/wm8960-soundcard/

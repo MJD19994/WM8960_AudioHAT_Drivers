@@ -10,6 +10,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>
@@ -164,12 +165,19 @@ static void *playback(void *ptr)
 
     struct stat st;
 
+    // mkfifo() applies the process umask — passing 0666 with default umask 022
+    // gives 0644, which blocks unprivileged user apps from writing /tmp/ec.input.
+    // chmod after creation to enforce the intended mode regardless of umask.
+    // Also re-chmod a pre-existing FIFO in case a previous run created it under
+    // a stricter umask before this fix shipped.
     if (stat(conf->playback_fifo, &st) != 0)
     {
         if (mkfifo(conf->playback_fifo, 0666) != 0) {
             fprintf(stderr, "Failed to create FIFO %s: %s\n", conf->playback_fifo, strerror(errno));
             exit(1);
         }
+        if (chmod(conf->playback_fifo, 0666) != 0)
+            fprintf(stderr, "Warning: chmod %s 0666 failed: %s\n", conf->playback_fifo, strerror(errno));
     }
     else if (!S_ISFIFO(st.st_mode))
     {
@@ -181,6 +189,13 @@ static void *playback(void *ptr)
             fprintf(stderr, "Failed to create FIFO %s: %s\n", conf->playback_fifo, strerror(errno));
             exit(1);
         }
+        if (chmod(conf->playback_fifo, 0666) != 0)
+            fprintf(stderr, "Warning: chmod %s 0666 failed: %s\n", conf->playback_fifo, strerror(errno));
+    }
+    else
+    {
+        if (chmod(conf->playback_fifo, 0666) != 0)
+            fprintf(stderr, "Warning: chmod %s 0666 failed: %s\n", conf->playback_fifo, strerror(errno));
     }
 
     int fd = open(conf->playback_fifo, O_RDONLY | O_NONBLOCK);
@@ -455,7 +470,9 @@ int playback_start(conf_t *conf)
 int capture_stop(void)
 {
     if (g_capture_ringbuffer.buffer) {
-        pthread_join(g_capture_thread, NULL);
+        int err = pthread_join(g_capture_thread, NULL);
+        if (err != 0)
+            fprintf(stderr, "Warning: capture thread join failed: %s\n", strerror(err));
         free(g_capture_ringbuffer.buffer);
         g_capture_ringbuffer.buffer = NULL;
     }
@@ -466,7 +483,9 @@ int capture_stop(void)
 int playback_stop(void)
 {
     if (g_playback_ringbuffer.buffer) {
-        pthread_join(g_playback_thread, NULL);
+        int err = pthread_join(g_playback_thread, NULL);
+        if (err != 0)
+            fprintf(stderr, "Warning: playback thread join failed: %s\n", strerror(err));
         free(g_playback_ringbuffer.buffer);
         g_playback_ringbuffer.buffer = NULL;
     }
@@ -489,6 +508,12 @@ int capture_read(void *buf, size_t frames, int timeout_ms)
 
 int capture_skip(size_t frames, int timeout_ms)
 {
+    /* Return type is int but `frames` is size_t — guard against truncation
+     * before doing any work so callers always see a meaningful value. */
+    if (frames > (size_t)INT_MAX) {
+        fprintf(stderr, "capture_skip: frames %zu exceeds INT_MAX\n", frames);
+        return -1;
+    }
     while (PaUtil_GetRingBufferReadAvailable(&g_capture_ringbuffer) < (ring_buffer_size_t)frames && timeout_ms > 0)
     {
         usleep(1000);
