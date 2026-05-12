@@ -3,6 +3,7 @@
 Detailed installation, verification, and uninstallation instructions for the WM8960 Audio HAT drivers. For a quick-start summary, see the [main README](../README.md).
 
 ## Contents
+
 - [Prerequisites](#prerequisites)
 - [Installation Steps](#installation-steps)
 - [Installer Options](#installer-options)
@@ -138,6 +139,7 @@ sudo i2cdetect -y 1
 - `UU` is preferred — it confirms the driver has claimed the codec
 
 **Example:**
+
 ```text
      0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
 00:                         -- -- -- -- -- -- -- --
@@ -160,6 +162,7 @@ lsmod | grep snd_soc
 - `snd_soc_bcm2835_i2s` — Raspberry Pi I2S interface
 
 **Example:**
+
 ```text
 snd_soc_wm8960_soundcard    16384  0
 snd_soc_wm8960              40960  1
@@ -178,6 +181,7 @@ cat /proc/asound/cards
 **Expected:** `wm8960soundcard` should appear in the list. Typically appears as card 0, 1, or 2 depending on other audio hardware.
 
 **Example:**
+
 ```text
  0 [vc4hdmi        ]: vc4-hdmi - vc4-hdmi
                       vc4-hdmi
@@ -196,6 +200,7 @@ aplay -l
 **Expected:** The WM8960 sound card listed with available playback devices. Shows card number, device number, and subdevices.
 
 **Example:**
+
 ```text
 card 1: wm8960soundcard [wm8960-soundcard], device 0: bcm2835-i2s-wm8960-hifi wm8960-hifi-0 [bcm2835-i2s-wm8960-hifi wm8960-hifi-0]
   Subdevices: 1/1
@@ -213,6 +218,7 @@ arecord -l
 **Expected:** The WM8960 sound card listed with available capture devices.
 
 **Example:**
+
 ```text
 card 1: wm8960soundcard [wm8960-soundcard], device 0: bcm2835-i2s-wm8960-hifi wm8960-hifi-0 [bcm2835-i2s-wm8960-hifi wm8960-hifi-0]
   Subdevices: 1/1
@@ -235,6 +241,7 @@ sudo cat /var/log/wm8960-soundcard.log
 - No error messages or warnings about missing devices
 
 **Example log entries:**
+
 ```text
 [2026-03-09 20:36:46] Starting WM8960 soundcard initialization (v1.3.0)...
 [2026-03-09 20:36:48] DKMS module wm8960-soundcard/1.0 is installed for kernel 6.12.75+rpt-rpi-v8
@@ -264,6 +271,7 @@ sudo dkms status
 - Shows `wm8960-soundcard` module installed for your kernel version
 
 **Example:**
+
 ```text
 wm8960-soundcard/1.0, 6.12.75+rpt-rpi-v8, aarch64: installed
 ```

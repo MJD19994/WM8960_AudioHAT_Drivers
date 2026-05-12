@@ -229,7 +229,9 @@ if grep -E "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE" | grep -qv "wm8960-managed"
     echo "See README.md 'Required config.txt Settings' section for more details."
     echo "=========================================="
     echo ""
-    if [ -t 0 ]; then
+    if [ "$AUTO_YES" -eq 1 ]; then
+        echo "Auto-confirmed (--yes): continuing past I2S-MMAP warning"
+    elif [ -t 0 ]; then
         read -rp "Press Enter to continue with installation..."
     else
         echo "Non-interactive mode, continuing..."

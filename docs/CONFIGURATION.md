@@ -3,6 +3,7 @@
 Detailed configuration reference for the WM8960 Audio HAT drivers, including config.txt settings, ALSA files, dynamic overlay loading, and advanced tuning.
 
 ## Contents
+
 - [Required config.txt Settings](#required-configtxt-settings)
 - [Configuration Files](#configuration-files)
 - [Dynamic Loading Explanation](#dynamic-loading-explanation)
@@ -267,11 +268,13 @@ By default, ALSA mixer settings (volume, mute state, etc.) **do not persist** ac
 **To save your audio settings:**
 
 1. Configure with `alsamixer`:
+
    ```bash
    alsamixer
    ```
 
 2. Save:
+
    ```bash
    sudo alsactl store
    ```
