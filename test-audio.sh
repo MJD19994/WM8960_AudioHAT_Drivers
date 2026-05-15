@@ -89,15 +89,19 @@ if ! command -v dkms >/dev/null 2>&1; then
     fail "dkms not installed"
 else
     running_kernel=$(uname -r)
-    # Separate dkms exit code from grep parsing so a broken DKMS state
-    # surfaces as a distinct failure instead of looking like "not built".
+    # Use the GLOBAL `dkms status` form (well-defined exit code) and filter
+    # for our module/version/kernel ourselves. The module-scoped form has
+    # explicitly undefined exit code semantics per the DKMS project, so
+    # a non-zero exit there can falsely look like a hard failure when the
+    # module is simply not registered yet.
     dkms_rc=0
-    dkms_output="$(dkms status wm8960-soundcard/1.0 -k "$running_kernel" 2>&1)" || dkms_rc=$?
+    dkms_output="$(dkms status 2>&1)" || dkms_rc=$?
+    line="$(printf '%s\n' "$dkms_output" | grep "^wm8960-soundcard/1\.0, $running_kernel," || true)"
     if [ "$dkms_rc" -ne 0 ]; then
         fail "dkms status failed (exit $dkms_rc): $dkms_output"
-    elif echo "$dkms_output" | grep -q "installed"; then
+    elif echo "$line" | grep -q "installed"; then
         pass "DKMS module installed for kernel $running_kernel"
-    elif echo "$dkms_output" | grep -q "built"; then
+    elif echo "$line" | grep -q "built"; then
         fail "DKMS module built but not installed for kernel $running_kernel (run: sudo dkms install wm8960-soundcard/1.0)"
     else
         fail "DKMS module not built for kernel $running_kernel (check: sudo cat /var/log/wm8960-soundcard.log)"

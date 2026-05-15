@@ -59,15 +59,18 @@ if [ "$UNINSTALL" -eq 1 ]; then
     # Unregister snd-aloop DKMS if we registered it (built-in kernel module is unaffected).
     # Separate the dkms exit code from the grep parsing so a broken DKMS state
     # doesn't masquerade as "not registered" and then have us delete the source
-    # tree out from under a still-registered package.
+    # tree out from under a still-registered package. Use the global form of
+    # `dkms status` — the module-scoped form has explicitly undefined exit code
+    # semantics per the DKMS project, so its non-zero return can mean either
+    # "not registered" (normal) or "real failure".
     aloop_still_registered=0
     if command -v dkms >/dev/null 2>&1; then
         aloop_status_rc=0
-        aloop_status_out="$(dkms status snd-aloop/1.0 2>&1)" || aloop_status_rc=$?
+        aloop_status_out="$(dkms status 2>&1)" || aloop_status_rc=$?
         if [ "$aloop_status_rc" -ne 0 ]; then
             aloop_still_registered=1
-            log "Warning: could not query DKMS for snd-aloop (exit $aloop_status_rc); keeping source tree"
-        elif printf '%s\n' "$aloop_status_out" | grep -q .; then
+            log "Warning: could not query DKMS (exit $aloop_status_rc); keeping source tree"
+        elif printf '%s\n' "$aloop_status_out" | grep -q "^snd-aloop/1\.0,"; then
             # Surface the dkms remove output so the user can see *why* it
             # failed (broken kernel build env, locked module, etc.) instead
             # of getting a generic "Echo canceller uninstalled" success line.
@@ -128,8 +131,10 @@ if [ "$ENGINE" = "webrtc" ]; then
             # Only call 'dkms remove' if the package is actually
             # registered, and treat its failure as fatal so a stuck
             # remove doesn't get silently swallowed and immediately
-            # collide with 'dkms add' under set -e.
-            if dkms status snd-aloop/1.0 2>/dev/null | grep -q .; then
+            # collide with 'dkms add' under set -e. Use the global
+            # form of dkms status — the scoped form has unstable exit
+            # code semantics per the DKMS project.
+            if dkms status 2>/dev/null | grep -q "^snd-aloop/1\.0,"; then
                 if ! dkms remove snd-aloop/1.0 --all; then
                     log_error "Failed to remove existing snd-aloop DKMS registration (status above)"
                     exit 1

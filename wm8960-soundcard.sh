@@ -54,25 +54,29 @@ ensure_dkms_module() {
     return 0
   fi
 
-  # Query DKMS state separately from the grep so a failure of dkms itself
-  # (e.g., broken kernel build env) doesn't silently fall through as
-  # "module not registered" — which would then skip the auto-rebuild we
-  # added precisely to recover from kernel-update breakage.
+  # Query DKMS state with the GLOBAL form (well-defined exit code: 0 if
+  # dkms itself works, non-zero only on real failure). The module-scoped
+  # form `dkms status MODULE/VERSION` has explicitly undefined exit code
+  # semantics per the DKMS project, so a non-zero return there can mean
+  # "module not registered" — which we don't want to misread as
+  # "DKMS is broken, give up". We parse the cached global output for our
+  # module/version/kernel below instead of re-invoking the scoped form.
   local dkms_status_rc=0
   local dkms_status_out
-  dkms_status_out="$(dkms status "$dkms_module/$dkms_version" 2>&1)" || dkms_status_rc=$?
+  dkms_status_out="$(dkms status 2>&1)" || dkms_status_rc=$?
   if [ "$dkms_status_rc" -ne 0 ]; then
     log_message "WARNING: dkms status exited $dkms_status_rc: $dkms_status_out"
     log_message "Cannot determine DKMS state; skipping auto-rebuild (manual rebuild may be required)"
     return 1
   fi
-  if ! printf '%s\n' "$dkms_status_out" | grep -q "$dkms_module"; then
-    log_message "DKMS module $dkms_module not registered, skipping auto-rebuild check"
+  if ! printf '%s\n' "$dkms_status_out" | grep -q "^$dkms_module/$dkms_version,"; then
+    log_message "DKMS module $dkms_module/$dkms_version not registered, skipping auto-rebuild check"
     return 0
   fi
 
-  # Check if module is already built+installed for the running kernel
-  if dkms status "$dkms_module/$dkms_version" -k "$running_kernel" 2>/dev/null | grep -q "installed"; then
+  # Check if module is already built+installed for the running kernel.
+  # Filter the cached global output for our module/version/kernel/status.
+  if printf '%s\n' "$dkms_status_out" | grep -q "^$dkms_module/$dkms_version, $running_kernel,.*installed"; then
     log_message "DKMS module $dkms_module/$dkms_version is installed for kernel $running_kernel"
     return 0
   fi
@@ -89,8 +93,9 @@ ensure_dkms_module() {
     return 1
   fi
 
-  # Check if module is already built (but not installed) - skip build, go straight to install
-  if dkms status "$dkms_module/$dkms_version" -k "$running_kernel" 2>/dev/null | grep -q "built"; then
+  # Check if module is already built (but not installed) — skip build, go
+  # straight to install. Same global-form filter as above.
+  if printf '%s\n' "$dkms_status_out" | grep -q "^$dkms_module/$dkms_version, $running_kernel,.* built"; then
     log_message "DKMS module already built for kernel $running_kernel, skipping to install..."
   else
     # Attempt build

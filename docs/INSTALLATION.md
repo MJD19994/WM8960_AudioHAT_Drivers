@@ -63,7 +63,7 @@ The installation script performs 13 steps:
 
 1. Update package lists
 2. Install kernel headers
-3. Install required packages (DKMS, git, i2c-tools, alsa-utils, ALSA plugins) and configure I2C in config.txt
+3. Install required packages (DKMS, i2c-tools, alsa-utils, ALSA plugins) and configure I2C in config.txt
 4. Compile and install the `wm8960-soundcard` kernel module via DKMS
 5. Copy the device tree overlay to `/boot/firmware/overlays/`
 6. Configure kernel modules in `/etc/modules` (add `i2c-dev`)
@@ -307,11 +307,15 @@ The uninstallation script performs 11 steps:
 Some system-level settings are preserved because they may be used by other software. If you want to completely remove everything:
 
 ```bash
+# Pick the active config.txt path (Pi OS Trixie+ uses /boot/firmware/,
+# older releases use /boot/)
+[ -f /boot/firmware/config.txt ] && CONFIG=/boot/firmware/config.txt || CONFIG=/boot/config.txt
+
 # Check if any wm8960-managed lines remain in config.txt
-grep 'wm8960-managed' /boot/firmware/config.txt
+grep 'wm8960-managed' "$CONFIG"
 
 # If present, remove them manually (dtparam=i2c_arm=on and dtoverlay=i2s-mmap)
-sudo nano /boot/firmware/config.txt
+sudo nano "$CONFIG"
 
 # Remove i2c-dev from /etc/modules if not needed by other hardware
 sudo nano /etc/modules

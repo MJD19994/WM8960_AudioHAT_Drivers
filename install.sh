@@ -285,13 +285,19 @@ echo "Kernel module source files synced successfully"
 
 # Add and build DKMS module
 echo "Adding module to DKMS..."
+# DKMS does not guarantee exit codes for the module-scoped form
+# `dkms status MODULE/VERSION` — on a fresh system where the module isn't
+# yet registered the scoped form can exit non-zero, which would falsely
+# abort the installer right before `dkms add` was about to run. Use the
+# global form (exit code is well-defined: 0 if dkms itself works) and
+# parse the output for our module instead.
 dkms_reg_rc=0
-dkms_reg_out="$(dkms status wm8960-soundcard/1.0 2>&1)" || dkms_reg_rc=$?
+dkms_reg_out="$(dkms status 2>&1)" || dkms_reg_rc=$?
 if [ "$dkms_reg_rc" -ne 0 ]; then
     echo "ERROR: dkms status failed (exit $dkms_reg_rc): $dkms_reg_out"
     exit 1
 fi
-if printf '%s\n' "$dkms_reg_out" | grep -q "wm8960-soundcard/1.0"; then
+if printf '%s\n' "$dkms_reg_out" | grep -q "^wm8960-soundcard/1\.0,"; then
     echo "Module already registered in DKMS"
 else
     dkms add -m wm8960-soundcard -v 1.0
