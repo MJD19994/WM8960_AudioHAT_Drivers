@@ -101,19 +101,19 @@ if [ -n "$installed_ver" ] && [ "$installed_ver" != "$running_ver" ]; then
     echo ""
 fi
 
-echo "Step 1/13: Updating package lists..."
+echo "Step 1/14: Updating package lists..."
 timeout 120 apt-get update || echo "Warning: apt-get update timed out or failed. Package installations may fail if repositories are not accessible."
 
 echo ""
-echo "Step 2/13: Installing kernel headers..."
+echo "Step 2/14: Installing kernel headers..."
 apt-get install -y "linux-headers-$(uname -r)"
 
 echo ""
-echo "Step 3/13: Installing required packages..."
+echo "Step 3/14: Installing required packages..."
 apt-get install -y dkms i2c-tools alsa-utils libasound2-plugins
 
 echo ""
-echo "Step 3a/13: Configuring I2C interface in config.txt..."
+echo "Step 4/14: Configuring I2C interface in config.txt..."
 # Detect boot partition location
 if [ -f "/boot/firmware/config.txt" ]; then
     CONFIG_FILE="/boot/firmware/config.txt"
@@ -160,6 +160,13 @@ line_in_all_section() {
     local pattern="$1"
     local all_line
     all_line=$(grep -nE "^[[:space:]]*\[all\]" "$CONFIG_FILE" | head -1 | cut -d: -f1)
+    # Defensive guard: if no [all] section exists, return empty rather than
+    # falling through to tail -n +1 which would scan the entire file.
+    # Current callers gate this with in_all_section() first, so this is
+    # insurance against a future caller that forgets.
+    if [ -z "$all_line" ]; then
+        return
+    fi
     local next_section_line
     # Match the next section header, allowing leading whitespace for consistency
     # with the [all] match above (otherwise an indented later section header
@@ -239,7 +246,7 @@ if grep -E "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE" | grep -qv "wm8960-managed"
 fi
 
 echo ""
-echo "Step 4/13: Compiling and installing wm8960-soundcard kernel module via DKMS..."
+echo "Step 5/14: Compiling and installing wm8960-soundcard kernel module via DKMS..."
 # Check if DKMS module is already installed. Separate the dkms exit code
 # from the grep parsing so a broken DKMS state doesn't look like "not
 # installed" and then collide with the fresh add/build below.
@@ -317,7 +324,7 @@ if ! dkms install -m wm8960-soundcard -v 1.0; then
 fi
 
 echo ""
-echo "Step 5/13: Copying device tree overlay..."
+echo "Step 6/14: Copying device tree overlay..."
 # Verify the dtbo file exists in the repository
 if [ ! -f "$SCRIPT_DIR/kernel_module/wm8960-soundcard.dtbo" ]; then
     echo "Error: wm8960-soundcard.dtbo not found in $SCRIPT_DIR/kernel_module/"
@@ -356,7 +363,7 @@ else
 fi
 
 echo ""
-echo "Step 6/13: Configuring kernel modules in /etc/modules..."
+echo "Step 7/14: Configuring kernel modules in /etc/modules..."
 # Add i2c-dev to /etc/modules if not present
 if ! grep -q "^i2c-dev" /etc/modules; then
     echo "i2c-dev" >> /etc/modules
@@ -364,7 +371,7 @@ if ! grep -q "^i2c-dev" /etc/modules; then
 fi
 
 echo ""
-echo "Step 7/13: Configuring I2S interface in $CONFIG_FILE..."
+echo "Step 8/14: Configuring I2S interface in $CONFIG_FILE..."
 # CONFIG_FILE already set in Step 3a
 
 # Enable I2S-MMAP (required for proper I2S memory-mapped interface)
@@ -448,7 +455,7 @@ fi
 echo "Note: wm8960-soundcard overlay will be loaded dynamically by the systemd service"
 
 echo ""
-echo "Step 8/13: Installing ALSA configuration files..."
+echo "Step 9/14: Installing ALSA configuration files..."
 # Create directory for WM8960 configuration
 mkdir -p /etc/wm8960-soundcard
 
@@ -530,7 +537,7 @@ else
 fi
 
 echo ""
-echo "Step 9/13: Installing systemd service script..."
+echo "Step 10/14: Installing systemd service script..."
 
 # Helper: install a script to /usr/bin with CRLF stripping and executable permissions
 # This prevents "exit code 203/EXEC" from systemd if files have Windows line endings
@@ -567,7 +574,7 @@ else
 fi
 
 echo ""
-echo "Step 10/13: Installing systemd service file..."
+echo "Step 11/14: Installing systemd service file..."
 # Copy systemd service file
 if [ -f "$SCRIPT_DIR/wm8960-soundcard.service" ]; then
     cp "$SCRIPT_DIR/wm8960-soundcard.service" /etc/systemd/system/
@@ -596,7 +603,7 @@ else
 fi
 
 echo ""
-echo "Step 11/13: Installing ALSA auto-save components (disabled by default)..."
+echo "Step 12/14: Installing ALSA auto-save components (disabled by default)..."
 # Copy auto-save script to /usr/bin
 if [ -f "$SCRIPT_DIR/wm8960-alsa-store" ]; then
     install_script "$SCRIPT_DIR/wm8960-alsa-store" /usr/bin/wm8960-alsa-store
@@ -622,7 +629,7 @@ else
 fi
 
 echo ""
-echo "Step 12/13: Enabling systemd service..."
+echo "Step 13/14: Enabling systemd service..."
 systemctl daemon-reload
 # Only enable; don't start. The service loads the DT overlay at boot once
 # I2S is active. Starting it now (pre-reboot) would fail — I2C is ready but
@@ -637,7 +644,7 @@ fi
 echo "Service enabled to start on boot (will run on next reboot)"
 
 echo ""
-echo "Step 13/13: Validating installation..."
+echo "Step 14/14: Validating installation..."
 # Verify critical files and configurations
 validation_errors=0
 

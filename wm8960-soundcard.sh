@@ -190,10 +190,10 @@ if [ "x${is_1a}" != "x" ]; then
   # can't leave the box without any ALSA config until manual recovery.
   log_message "Managing ALSA configuration files..."
   if [ ! -f /etc/wm8960-soundcard/asound.conf ]; then
-    log_error_exit "Source file /etc/wm8960-soundcard/asound.conf not found — refusing to touch live ALSA config" 4
+    log_error_exit "Source file /etc/wm8960-soundcard/asound.conf not found -- refusing to touch live ALSA config" 4
   fi
   if [ ! -f /etc/wm8960-soundcard/wm8960_asound.state ]; then
-    log_error_exit "Source file /etc/wm8960-soundcard/wm8960_asound.state not found — refusing to touch live ALSA config" 4
+    log_error_exit "Source file /etc/wm8960-soundcard/wm8960_asound.state not found -- refusing to touch live ALSA config" 4
   fi
 
   if [ -f /etc/asound.conf ] && [ ! -L /etc/asound.conf ]; then

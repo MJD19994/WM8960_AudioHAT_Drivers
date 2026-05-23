@@ -86,16 +86,12 @@ section "Systemd Service"
 if systemctl cat wm8960-soundcard.service >/dev/null 2>&1; then
     systemctl status wm8960-soundcard.service --no-pager 2>/dev/null || true
 else
-    echo "(service not found — unit file not installed)"
+    echo "(service not found -- unit file not installed)"
 fi
 
 section "Service Log (last 30 lines)"
 if [ -f /var/log/wm8960-soundcard.log ]; then
-    if [ "$EUID" -eq 0 ]; then
-        tail -30 /var/log/wm8960-soundcard.log
-    else
-        tail -30 /var/log/wm8960-soundcard.log 2>/dev/null || echo "(run as root to read log)"
-    fi
+    tail -30 /var/log/wm8960-soundcard.log
 else
     echo "(log file not found)"
 fi
