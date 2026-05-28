@@ -28,6 +28,7 @@ dkms.conf text eol=lf
 
 # CI/CD workflow files
 *.yml text eol=lf
+*.yaml text eol=lf
 
 # Documentation
 *.md text eol=lf

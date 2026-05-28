@@ -144,7 +144,7 @@ The WM8960 driver uses **dynamic overlay loading** via the systemd service inste
 
 ### How It Works
 
-1. **Service-based initialization:** `wm8960-soundcard.service` runs after `multi-user.target`, ensuring proper boot sequence. No network dependency.
+1. **Service-based initialization:** `wm8960-soundcard.service` runs after `local-fs.target`, ensuring filesystems are mounted before overlay loading. No network dependency.
 
 2. **I2C detection:** The service script actively detects the codec on I2C bus 1 at address `0x1a` with up to 5 retry attempts with delays.
 

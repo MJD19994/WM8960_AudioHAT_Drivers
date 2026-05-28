@@ -391,7 +391,12 @@ while in_all_section "^[[:space:]]*dtparam=i2s=on"; do
         break
     fi
     i2s_text=$(sed -n "${i2s_line}p" "$CONFIG_FILE")
-    replacement="# ${i2s_text}  # Disabled by WM8960 installer; remove leading '# ' to restore"
+    # Escape sed-special characters (& and \) in the captured line before
+    # reinjecting it as the c\ replacement text, so a line containing them
+    # can't corrupt the rewrite. Realistically a dtparam line never holds
+    # these, but the line text is user-editable so we treat it as untrusted.
+    i2s_text_escaped=$(printf '%s\n' "$i2s_text" | sed 's/[&\]/\\&/g')
+    replacement="# ${i2s_text_escaped}  # Disabled by WM8960 installer; remove leading '# ' to restore"
     if ! sed -i "${i2s_line}c\\${replacement}" "$CONFIG_FILE"; then
         echo "ERROR: Failed to comment out dtparam=i2s=on in config.txt"
         exit 1
