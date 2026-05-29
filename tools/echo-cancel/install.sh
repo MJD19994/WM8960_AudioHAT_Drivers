@@ -113,10 +113,22 @@ if [ "$ENGINE" = "webrtc" ]; then
     # DKMS package, or /etc/modules-load.d — so an unmanaged-target
     # abort leaves zero side effects on disk.
     aec_target=/etc/alsa/conf.d/50-wm8960-aec.conf
+    legacy_aec_target=/etc/alsa/conf.d/50-aec.conf
     if [ -f "${SCRIPT_DIR}/configs/alsa-aec.conf" ] && \
        [ -f "$aec_target" ] && \
        ! grep -q "wm8960-managed" "$aec_target" 2>/dev/null; then
         log_error "$aec_target exists and is not wm8960-managed -- refusing to overwrite. Move or remove it, then re-run."
+        exit 1
+    fi
+    # Same ownership guard for the legacy unprefixed name. An unmanaged
+    # 50-aec.conf left in place alongside the new 50-wm8960-aec.conf would
+    # give ALSA two competing AEC drop-ins; the managed-removal step below
+    # only deletes it when it carries our marker, so reject an unmanaged
+    # one up front rather than installing a second active config.
+    if [ -f "${SCRIPT_DIR}/configs/alsa-aec.conf" ] && \
+       [ -f "$legacy_aec_target" ] && \
+       ! grep -q "wm8960-managed" "$legacy_aec_target" 2>/dev/null; then
+        log_error "$legacy_aec_target exists and is not wm8960-managed -- refusing to install a second competing AEC drop-in. Move or remove it, then re-run."
         exit 1
     fi
 
@@ -173,9 +185,9 @@ MODEOF
         } > "$aec_target"
         # Drop a previous unprefixed-name install if still present so we
         # don't end up with two competing AEC drop-ins active at once.
-        if [ -f /etc/alsa/conf.d/50-aec.conf ] && \
-           grep -q "wm8960-managed" /etc/alsa/conf.d/50-aec.conf 2>/dev/null; then
-            rm -f /etc/alsa/conf.d/50-aec.conf
+        if [ -f "$legacy_aec_target" ] && \
+           grep -q "wm8960-managed" "$legacy_aec_target" 2>/dev/null; then
+            rm -f "$legacy_aec_target"
         fi
         log "ALSA AEC config installed at $aec_target"
     fi

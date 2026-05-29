@@ -498,13 +498,19 @@ elif dpkg -l wireplumber 2>/dev/null | grep -q '^ii'; then
         # replaced.
         wp_target=/etc/wireplumber/wireplumber.conf.d/40-wm8960-default.conf
         if [ -f "$wp_target" ] && ! grep -q "wm8960-managed" "$wp_target" 2>/dev/null; then
-            echo "ERROR: $wp_target exists and is not wm8960-managed -- refusing to overwrite. Move or remove it, then re-run."
-            exit 1
+            # Optional default-device routing only — don't abort the whole driver
+            # install over an unmanaged file we don't own. Leave it untouched,
+            # skip just this step, and tell the user how to enable it later.
+            echo "WARNING: $wp_target exists and is not wm8960-managed -- leaving it untouched."
+            echo "         Skipping WM8960 default-device setup for PipeWire (the core driver"
+            echo "         still installs). To enable it later, move or remove that file and"
+            echo "         re-run, or set the WM8960 as the default device manually."
+        else
+            cp "$SCRIPT_DIR/pipewire/wireplumber-wm8960.conf" /etc/wm8960-soundcard/
+            mkdir -p /etc/wireplumber/wireplumber.conf.d
+            cp "$SCRIPT_DIR/pipewire/wireplumber-wm8960.conf" "$wp_target"
+            echo "Installed WirePlumber config: $wp_target"
         fi
-        cp "$SCRIPT_DIR/pipewire/wireplumber-wm8960.conf" /etc/wm8960-soundcard/
-        mkdir -p /etc/wireplumber/wireplumber.conf.d
-        cp "$SCRIPT_DIR/pipewire/wireplumber-wm8960.conf" "$wp_target"
-        echo "Installed WirePlumber config: $wp_target"
     else
         echo "Warning: pipewire/wireplumber-wm8960.conf not found in script directory (PipeWire config skipped)"
     fi
@@ -525,13 +531,18 @@ elif dpkg -l pulseaudio 2>/dev/null | grep -q '^ii' && ! dpkg -l pipewire-pulse 
         # block above.
         pa_target=/etc/pulse/default.pa.d/wm8960-default.pa
         if [ -f "$pa_target" ] && ! grep -q "wm8960-managed" "$pa_target" 2>/dev/null; then
-            echo "ERROR: $pa_target exists and is not wm8960-managed -- refusing to overwrite. Move or remove it, then re-run."
-            exit 1
+            # Optional default-device routing only — same skip-with-warning
+            # rationale as the WirePlumber block above.
+            echo "WARNING: $pa_target exists and is not wm8960-managed -- leaving it untouched."
+            echo "         Skipping WM8960 default-device setup for PulseAudio (the core driver"
+            echo "         still installs). To enable it later, move or remove that file and"
+            echo "         re-run, or set the WM8960 as the default device manually."
+        else
+            cp "$SCRIPT_DIR/pulseaudio/pulseaudio-wm8960.pa" /etc/wm8960-soundcard/
+            mkdir -p /etc/pulse/default.pa.d
+            cp "$SCRIPT_DIR/pulseaudio/pulseaudio-wm8960.pa" "$pa_target"
+            echo "Installed PulseAudio config: $pa_target"
         fi
-        cp "$SCRIPT_DIR/pulseaudio/pulseaudio-wm8960.pa" /etc/wm8960-soundcard/
-        mkdir -p /etc/pulse/default.pa.d
-        cp "$SCRIPT_DIR/pulseaudio/pulseaudio-wm8960.pa" "$pa_target"
-        echo "Installed PulseAudio config: $pa_target"
     else
         echo "Warning: pulseaudio/pulseaudio-wm8960.pa not found in script directory (PulseAudio config skipped)"
     fi

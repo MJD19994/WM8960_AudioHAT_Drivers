@@ -175,6 +175,7 @@ These use PipeWire/PulseAudio's built-in WebRTC AEC modules and do NOT require s
 ## Uninstall
 
 ```bash
+cd tools/echo-cancel
 sudo bash install.sh --uninstall
 ```
 
