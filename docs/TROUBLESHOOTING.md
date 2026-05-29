@@ -75,7 +75,13 @@ dmesg | grep wm8960
 
 **Solution:**
 - Ensure the HAT is firmly seated on the GPIO header
-- Check I2C is enabled: `grep '^[[:space:]]*dtparam=i2c_arm=on' /boot/firmware/config.txt`
+- Check I2C is enabled:
+
+  ```bash
+  [ -f /boot/firmware/config.txt ] && CONFIG=/boot/firmware/config.txt || CONFIG=/boot/config.txt
+  grep '^[[:space:]]*dtparam=i2c_arm=on' "$CONFIG"
+  ```
+
 - Verify the overlay is loaded: `sudo dtoverlay -l | grep wm8960-soundcard`
 - If you just did a kernel update, the DKMS module may need rebuilding — restart the service to trigger auto-rebuild
 
