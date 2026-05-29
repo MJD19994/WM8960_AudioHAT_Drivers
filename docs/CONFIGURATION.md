@@ -50,7 +50,10 @@ The install script adds `dtoverlay=i2s-mmap`, which is required for the I2S memo
 **To resolve:**
 
 ```bash
-sudo nano /boot/firmware/config.txt
+# Pick the active config.txt path (Pi OS Trixie+ uses /boot/firmware/,
+# older releases use /boot/)
+[ -f /boot/firmware/config.txt ] && CONFIG=/boot/firmware/config.txt || CONFIG=/boot/config.txt
+sudo nano "$CONFIG"
 # Comment out: # dtoverlay=i2s-mmap  # Disabled due to conflict
 sudo reboot
 ```

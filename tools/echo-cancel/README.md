@@ -119,8 +119,8 @@ Audio I/O is through named pipes: `/tmp/ec.input` (playback) and `/tmp/ec.output
 
 ```bash
 systemctl status wm8960-echo-cancel
-systemctl restart wm8960-echo-cancel
-journalctl -u wm8960-echo-cancel -f
+sudo systemctl restart wm8960-echo-cancel
+sudo journalctl -u wm8960-echo-cancel -f
 ```
 
 ## Testing
@@ -145,6 +145,7 @@ sox recording.wav -n stat 2>&1 | grep "Maximum amplitude"
 Drop-in echo cancellation configs are provided in `configs/`:
 
 - **PipeWire:** `configs/pipewire-echo-cancel.conf`
+
   ```bash
   sudo mkdir -p /etc/pipewire/pipewire.conf.d
   sudo cp configs/pipewire-echo-cancel.conf /etc/pipewire/pipewire.conf.d/20-echo-cancel.conf
@@ -152,6 +153,7 @@ Drop-in echo cancellation configs are provided in `configs/`:
   ```
 
 - **PulseAudio:** `configs/pulse-echo-cancel.pa`
+
   ```bash
   sudo mkdir -p /etc/pulse/default.pa.d
   sudo cp configs/pulse-echo-cancel.pa /etc/pulse/default.pa.d/echo-cancel.pa

@@ -3,12 +3,14 @@
 This document provides a comprehensive overview of all WM8960 ALSA controls available on the current Raspberry Pi audio driver setup, with guidance and examples for usage in voice assistant frameworks like Wyoming and Rhasspy Satellite.
 
 ---
+
 ## General Guidelines
 - Use `alsamixer` or `amixer` to view and change mixer settings.
 - Many controls map directly to features exposed in Wyoming Satellite via volume/boost flags and can also help tune Rhasspy audio.
 - ALSA mixer controls are accessible from CLI and Python (e.g., using `pyalsaaudio` or subprocess calls).
 
 ---
+
 ## Inspecting Controls with `amixer`
 
 ```bash
@@ -103,6 +105,7 @@ state=$(amixer -c wm8960soundcard sget 'Noise Gate Switch' | grep -oE '\[on\]|\[
 ```
 
 ---
+
 ## Essential Audio Controls
 
 ### Playback
@@ -119,6 +122,7 @@ state=$(amixer -c wm8960soundcard sget 'Noise Gate Switch' | grep -oE '\[on\]|\[
 - **Left/Right Input Mixer Boost Switch**: Enables boost from input PGA to ADC. Use `amixer sset 'Left Input Mixer Boost Switch' on`.
 
 ---
+
 ## Advanced Controls
 
 ### Loopback / Monitoring
@@ -140,13 +144,14 @@ state=$(amixer -c wm8960soundcard sget 'Noise Gate Switch' | grep -oE '\[on\]|\[
 - **3D Controls**: Experimental stereo effects; rarely used in voice apps.
 
 ---
+
 ## Example Usage in Wyoming Satellite
 
 1. **Boost Mic Volume via Control:**
    ```bash
-   amixer sset 'Capture Volume' 80%   # Boost overall capture gain
-   amixer sset 'Left Input Mixer Boost Switch' on
-   amixer sset 'Right Input Mixer Boost Switch' on
+   amixer -c wm8960soundcard sset 'Capture Volume' 80%   # Boost overall capture gain
+   amixer -c wm8960soundcard sset 'Left Input Mixer Boost Switch' on
+   amixer -c wm8960soundcard sset 'Right Input Mixer Boost Switch' on
    ```
    Or, use Wyoming flag:
    ```bash
@@ -154,34 +159,37 @@ state=$(amixer -c wm8960soundcard sget 'Noise Gate Switch' | grep -oE '\[on\]|\[
    ```
 2. **Increase Speaker Output:**
    ```bash
-   amixer sset 'Speaker Playback Volume' 100%
+   amixer -c wm8960soundcard sset 'Speaker Playback Volume' 100%
    wyoming-satellite --speaker-volume-multiplier 1.5
    ```
 3. **Enable Live Monitoring / Loopback:**
    ```bash
-   amixer sset 'Left Output Mixer Boost Bypass Switch' on
-   amixer sset 'Right Output Mixer Boost Bypass Switch' on
+   amixer -c wm8960soundcard sset 'Left Output Mixer Boost Bypass Switch' on
+   amixer -c wm8960soundcard sset 'Right Output Mixer Boost Bypass Switch' on
    # Speak into the mic, hear yourself live in headphones/speaker
    ```
 4. **Test All Controls (CLI):**
    ```bash
    alsamixer   # Full interactive mixer view
-   amixer scontrols
+   amixer -c wm8960soundcard scontrols
    ```
 
 ---
+
 ## Tuning for Rhasspy Satellite
 - Use `alsamixer` to boost mic inputs and experiment with ALC/Noise Gate if inputs are too quiet or noisy.
 - Fine-tune Capture/Playback/Speaker volumes for best wakeword and STT accuracy.
 - Rhasspy reads default ALSA config. No extra steps required unless using multiple sound cards.
 
 ---
+
 ## Troubleshooting
 - If audio is unexpectedly low/noisy: Try boosting input mixers and enabling ALC / Noise Gate.
 - If monitoring isn't working: Check that loopback/bypass switches are enabled and outputs not muted/misdirected.
 - Always run `alsactl store` after tuning to save settings.
 
 ---
+
 ## References
 - Hardware: WM8960 Codec (Seeed, Keyestudio, Waveshare, SparkFun)
 - ALSA: [Official docs](https://alsa-project.org/wiki/Main_Page), [amixer doc](https://linux.die.net/man/1/amixer)

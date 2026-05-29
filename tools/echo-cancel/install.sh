@@ -293,4 +293,4 @@ else
 fi
 log ""
 log "  Check status:  systemctl status ${SERVICE_NAME}"
-log "  Uninstall:     sudo bash install.sh --uninstall"
+log "  Uninstall:     sudo bash ${SCRIPT_DIR}/install.sh --uninstall"
