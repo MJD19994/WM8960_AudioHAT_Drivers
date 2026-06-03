@@ -72,17 +72,17 @@ amixer -c wm8960soundcard sset 'ALC Mode' Limiter
 ## Saving and Restoring Mixer State
 
 ```bash
-# Save current state to default location
-sudo alsactl store
+# Save current state for the WM8960 card
+sudo alsactl store wm8960soundcard
 
 # Save to a specific file
 sudo alsactl store -f ~/my-wm8960-settings.state wm8960soundcard
 
-# Restore from default location (happens automatically at boot via the service)
-sudo alsactl restore
+# Restore the WM8960 card from the default location (similar to what the boot service does)
+sudo alsactl restore wm8960soundcard
 
-# Restore from a specific file
-sudo alsactl restore -f ~/my-wm8960-settings.state
+# Restore the WM8960 card from a specific file
+sudo alsactl restore -f ~/my-wm8960-settings.state wm8960soundcard
 
 # Reset to shipped factory defaults
 sudo wm8960-volume reset

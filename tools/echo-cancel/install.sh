@@ -278,9 +278,18 @@ fi
 # this start fail legitimately. Treat it as a warning and continue so
 # the user still sees the usage and uninstall guidance below.
 start_status=0
-if ! systemctl start "${SERVICE_NAME}"; then
+# If the service is already active (re-install, or a webrtc<->speex engine
+# switch), `systemctl start` is a no-op and the old binary/unit keeps
+# running. Issue a real `restart` in that case so the rewritten unit and
+# freshly-installed binary actually take effect.
+if systemctl is-active --quiet "${SERVICE_NAME}"; then
+    if ! systemctl restart "${SERVICE_NAME}"; then
+        start_status=1
+        log "Warning: '${SERVICE_NAME}' did not restart cleanly. Run 'systemctl status ${SERVICE_NAME}' to investigate."
+    fi
+elif ! systemctl start "${SERVICE_NAME}"; then
     start_status=1
-    log "Warning: '${SERVICE_NAME}' did not start immediately. This is usually a missing dependency on a freshly imaged Pi — reboot or run 'systemctl status ${SERVICE_NAME}' to investigate."
+    log "Warning: '${SERVICE_NAME}' did not start immediately. This is usually a missing dependency on a freshly imaged Pi -- reboot or run 'systemctl status ${SERVICE_NAME}' to investigate."
 fi
 
 log ""

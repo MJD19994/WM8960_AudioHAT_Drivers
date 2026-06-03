@@ -4,7 +4,7 @@ the repo root. Components under subdirectories carry their own licenses:
 
   - kernel_module/     GPL-2.0-only       (see SPDX headers in source files)
   - dkms/snd-aloop/    GPL-2.0-or-later   (Linux kernel source, see file headers)
-  - tools/echo-cancel/ GPL-3.0-or-later   (see tools/echo-cancel/LICENSE-GPL3)
+  - tools/echo-cancel/ GPL-3.0-or-later   (except vendored PortAudio ring-buffer files, which retain PortAudio's BSD-style license; see docs/LICENSING.md)
 
 For per-component details and guidance, see docs/LICENSING.md.
 
