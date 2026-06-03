@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT
 
 set -e
 
@@ -8,10 +9,37 @@ echo "==============================================="
 echo ""
 
 # Check if running as root
-if [ "$EUID" -ne 0 ]; then 
+if [ "$EUID" -ne 0 ]; then
     echo "Error: This script must be run as root (use sudo)"
     exit 1
 fi
+
+# ANSI colors for prominent notices, gated on stdout being a TTY so logs
+# and pipes stay clean (same pattern test-audio.sh uses).
+if [ -t 1 ]; then
+    YELLOW='\033[1;33m'
+    NC='\033[0m'
+else
+    YELLOW=''
+    NC=''
+fi
+
+# Detect the optional echo-cancel install. tools/echo-cancel/install.sh
+# deploys its own components that this uninstaller does not own and
+# won't remove; we surface that to the user in the post-uninstall
+# "items not removed" notice further down rather than blocking here,
+# since the EC uninstaller is independent and can be run before or
+# after this one in either order.
+ec_components_detected=0
+for marker in /usr/local/bin/wm8960-ec /usr/local/bin/wm8960-ec-webrtc \
+              /etc/systemd/system/wm8960-echo-cancel.service \
+              /etc/alsa/conf.d/50-wm8960-aec.conf \
+              /etc/modules-load.d/wm8960-snd-aloop.conf; do
+    if [ -e "$marker" ]; then
+        ec_components_detected=1
+        break
+    fi
+done
 
 echo "Step 1/11: Stopping and disabling systemd service..."
 systemctl stop wm8960-soundcard.service 2>/dev/null || echo "Service not running"
@@ -31,6 +59,7 @@ rm -f /etc/systemd/system/wm8960-alsa-store.service
 rm -f /etc/systemd/system/wm8960-alsa-store.timer
 rm -f /usr/bin/wm8960-alsa-store
 rm -f /usr/bin/wm8960-volume
+rm -f /usr/bin/wm8960-diag
 systemctl daemon-reload
 echo "Service files and utilities removed"
 
@@ -74,9 +103,14 @@ else
     echo "No previous ALSA state backup to restore"
 fi
 
-rm -f /etc/asound.conf.backup.*
-rm -f /var/lib/alsa/asound.state.backup.*
-echo "ALSA backup cleanup complete"
+# Preserve any remaining ALSA backups as a manual recovery safety net.
+# Boot-time count-capped cleanup in wm8960-soundcard.sh kept the count
+# bounded during normal operation; once the boot service is gone there's
+# nothing to bound it, and wiping every backup right after a single restore
+# would erase the user's only fallback if the restored config turns out to
+# be wrong. Users can rm /etc/asound.conf.backup.* and
+# /var/lib/alsa/asound.state.backup.* manually if they want the disk back.
+echo "ALSA backups preserved at /etc/asound.conf.backup.* and /var/lib/alsa/asound.state.backup.* (delete manually if not needed)"
 
 echo ""
 echo "Step 5/11: Removing PipeWire and PulseAudio configurations..."
@@ -106,22 +140,45 @@ echo "Log file and logrotate config removed"
 
 echo ""
 echo "Step 8/11: Removing DKMS kernel module..."
-if dkms status | grep -q "wm8960-soundcard"; then
-    dkms remove wm8960-soundcard/1.0 --all
-    # Verify removal was successful
-    if ! dkms status | grep -q "wm8960-soundcard"; then
-        echo "DKMS package successfully removed"
-    else
-        echo "Warning: DKMS package may still be partially installed"
-    fi
+dkms_still_registered=0
+if ! command -v dkms >/dev/null 2>&1; then
+    echo "DKMS command not found, skipping..."
 else
-    echo "DKMS module not found, skipping..."
+    # Query DKMS state separately from the grep so a failure of dkms itself
+    # (e.g., broken kernel build env) doesn't silently fall through as
+    # "module not registered" — which would then delete the source tree.
+    dkms_status_rc=0
+    dkms_status_before="$(dkms status 2>&1)" || dkms_status_rc=$?
+    if [ "$dkms_status_rc" -ne 0 ]; then
+        dkms_still_registered=1
+        echo "Warning: could not query DKMS status (dkms status exited $dkms_status_rc); keeping source files"
+    elif printf '%s\n' "$dkms_status_before" | grep -q "wm8960-soundcard"; then
+        dkms remove wm8960-soundcard/1.0 --all || echo "Warning: DKMS removal returned an error (continuing uninstall)"
+        # Verify removal succeeded — same error-separation pattern.
+        dkms_status_after_rc=0
+        dkms_status_after="$(dkms status 2>&1)" || dkms_status_after_rc=$?
+        if [ "$dkms_status_after_rc" -ne 0 ]; then
+            dkms_still_registered=1
+            echo "Warning: could not verify DKMS removal (dkms status exited $dkms_status_after_rc); keeping source files"
+        elif printf '%s\n' "$dkms_status_after" | grep -q "wm8960-soundcard"; then
+            dkms_still_registered=1
+            echo "Warning: DKMS package may still be partially installed"
+        else
+            echo "DKMS package successfully removed"
+        fi
+    else
+        echo "DKMS module not found, skipping..."
+    fi
 fi
 
 echo ""
 echo "Step 9/11: Removing DKMS source files..."
-rm -rf /usr/src/wm8960-soundcard-1.0
-echo "DKMS source files removed"
+if [ "$dkms_still_registered" -eq 1 ]; then
+    echo "Skipping DKMS source removal because DKMS package is still registered"
+else
+    rm -rf /usr/src/wm8960-soundcard-1.0
+    echo "DKMS source files removed"
+fi
 
 echo ""
 echo "Step 10/11: Removing device tree overlay..."
@@ -140,11 +197,13 @@ if [ -f "$CONFIG_FILE" ]; then
     # Make a backup of config.txt before making any changes
     cp "$CONFIG_FILE" "${CONFIG_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
 
-    # Remove WM8960-related overlay entries (if any were manually added)
-    sed -i '/^dtoverlay=wm8960-soundcard/d' "$CONFIG_FILE"
-    # Remove only wm8960-soundcard specific comments
-    sed -i '/^#.*wm8960-soundcard/d' "$CONFIG_FILE"
-    # Remove installer-managed lines (tagged with # wm8960-managed)
+    # Remove WM8960-related overlay entries (if any were manually added by users).
+    # Allow leading whitespace — some users indent lines inside [section] blocks.
+    sed -i '/^[[:space:]]*dtoverlay=wm8960-soundcard/d' "$CONFIG_FILE"
+    # Remove installer-managed lines (tagged with # wm8960-managed).
+    # This includes dtparam=i2c_arm=on, dtoverlay=i2s-mmap, and our informational
+    # comment — all tagged so we only remove what we added. User-authored comments
+    # mentioning wm8960-soundcard are preserved.
     sed -i '/# wm8960-managed/d' "$CONFIG_FILE"
 
     echo "Config.txt cleaned (backup created)"
@@ -157,18 +216,61 @@ echo "==============================================="
 echo "Uninstallation Complete!"
 echo "==============================================="
 echo ""
+
+if [ "$ec_components_detected" -eq 1 ]; then
+    # Build the "not touched" list dynamically so a Speex-only install
+    # doesn't see WebRTC-specific bullets (snd-aloop / 50-wm8960-aec.conf)
+    # that don't apply to it.
+    echo "==============================================="
+    echo -e "${YELLOW}WARNING:${NC} Optional echo-cancel components detected"
+    echo "==============================================="
+    echo "The optional echo-cancel tooling has its own uninstaller. Run it to"
+    echo "remove its components:"
+    echo ""
+    echo "    sudo bash tools/echo-cancel/install.sh --uninstall"
+    echo ""
+    echo "This main uninstaller does NOT touch:"
+    if [ -e /usr/local/bin/wm8960-ec ]; then
+        echo "  - /usr/local/bin/wm8960-ec (Speex engine binary)"
+    fi
+    if [ -e /usr/local/bin/wm8960-ec-webrtc ]; then
+        echo "  - /usr/local/bin/wm8960-ec-webrtc (WebRTC engine binary)"
+    fi
+    if [ -e /etc/systemd/system/wm8960-echo-cancel.service ]; then
+        echo "  - /etc/systemd/system/wm8960-echo-cancel.service"
+    fi
+    if [ -e /etc/alsa/conf.d/50-wm8960-aec.conf ]; then
+        echo "  - /etc/alsa/conf.d/50-wm8960-aec.conf (WebRTC AEC drop-in)"
+    fi
+    if [ -e /etc/modules-load.d/wm8960-snd-aloop.conf ]; then
+        echo "  - /etc/modules-load.d/wm8960-snd-aloop.conf (WebRTC snd-aloop persist)"
+        echo "  - snd-aloop DKMS module (when built via the EC fallback)"
+    fi
+    echo ""
+    echo "(this is informational - uninstall continues normally)"
+    echo "==============================================="
+    echo ""
+fi
+
 echo "The following items were removed:"
 echo "  - Lines tagged with '# wm8960-managed' in config.txt"
 echo "  - WM8960-related overlay and comment lines"
 echo ""
 echo "The following items were NOT removed (manual cleanup if desired):"
 echo "  - i2c-dev in /etc/modules"
-echo "  - Installed packages (dkms, i2c-tools, libasound2-plugins)"
+echo "  - Installed packages (dkms, i2c-tools)"
+echo "  - alsa-utils and libasound2-plugins are SHARED with most audio stacks"
+echo "    (PulseAudio, PipeWire, Bluetooth audio) -- leave installed unless you're sure"
 echo "  - Kernel headers"
 echo ""
 echo "To remove these manually:"
 echo "  1. Edit /etc/modules and remove i2c-dev if not needed"
-echo "  2. apt-get remove dkms i2c-tools (if not needed by other software)"
+echo "  2. apt-get remove dkms i2c-tools   # ONLY if no DKMS-managed modules"
+echo "                                       remain (this repo's optional EC"
+echo "                                       installer also uses DKMS for"
+echo "                                       snd-aloop)"
+echo "  3. apt-get remove alsa-utils libasound2-plugins   # ONLY if no other"
+echo "                                                      audio software uses them"
 echo ""
 echo "IMPORTANT: Reboot your Raspberry Pi for changes to take effect."
 echo ""

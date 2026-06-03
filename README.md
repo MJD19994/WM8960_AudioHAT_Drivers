@@ -1,904 +1,307 @@
-# WM8960 AudioHAT Drivers
+# WM8960 Audio HAT Drivers for Raspberry Pi
+
+[![License: Multi (MIT / GPL-2.0+ / GPL-3.0+)](https://img.shields.io/badge/License-Multi%20(MIT%20%2F%20GPL--2.0%2B%20%2F%20GPL--3.0%2B)-blue.svg)](docs/LICENSING.md)
+[![GitHub release](https://img.shields.io/github/v/release/MJD19994/WM8960_AudioHAT_Drivers)](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/releases)
+[![CI](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/actions/workflows/ci.yml/badge.svg)](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/actions/workflows/ci.yml)
+![Raspberry Pi OS](https://img.shields.io/badge/Raspberry%20Pi%20OS-Trixie-success?style=flat-square)
+![Kernel 6.12](https://img.shields.io/badge/kernel-6.12%20validated-2ea44f?style=flat-square)
+![DKMS](https://img.shields.io/badge/DKMS-supported-yellow?style=flat-square)
+![ALSA](https://img.shields.io/badge/ALSA-integrated-blue?style=flat-square)
+![PulseAudio](https://img.shields.io/badge/PulseAudio-supported-blue?style=flat-square)
+![PipeWire](https://img.shields.io/badge/PipeWire-supported-blue?style=flat-square)
+![ReSpeaker](https://img.shields.io/badge/ReSpeaker%202--Mic-compatible-1f6feb?style=flat-square)
+![Waveshare](https://img.shields.io/badge/Waveshare%20WM8960-compatible-1f6feb?style=flat-square)
+![Seeed Studio](https://img.shields.io/badge/Seeed%20Studio-compatible-1f6feb?style=flat-square)
+
+Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HAT) on the Raspberry Pi running Raspberry Pi OS.
+
+## Contents
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Tested Configurations](#tested-configurations)
+- [Quick Install](#quick-install)
+- [Quick Verification](#quick-verification)
+- [Audio Server Support](#audio-server-support)
+- [Echo Cancellation](#echo-cancellation)
+- [Mixer Controls](#mixer-controls)
+- [Testing Audio](#testing-audio)
+- [Persisting Audio Settings](#persisting-audio-settings)
+- [Uninstallation](#uninstallation)
+- [Troubleshooting & Support](#troubleshooting--support)
+- [Documentation](#documentation)
+- [License](#license)
+- [Contributing](#contributing)
+- [Resources](#resources)
+- [Credits](#credits)
 
 ## Overview
-This repository contains drivers and configuration for the WM8960 Audio HAT for Raspberry Pi. The WM8960 is a low power stereo codec featuring Class D speaker drivers to reduce external component count and provide high quality audio output.
+
+This project provides a patched DKMS kernel module, systemd service, ALSA configuration, and optional WebRTC echo cancellation for WM8960-based Raspberry Pi Audio HATs that lack an external MCLK — where the mainline Linux `snd_soc_wm8960` driver fails with "No MCLK configured". Auto-detects and configures PipeWire, PulseAudio, or ALSA-only setups at install time.
 
 ### Key Features
-- High-quality stereo audio playback and recording
-- Dynamic driver loading for improved system stability
-- Automatic I2C codec detection
-- ALSA integration for seamless audio control
-- Service-based initialization for proper boot sequencing
+
+- **Patched DKMS kernel module** — forces PLL mode using the HAT's onboard 24 MHz crystal so Pi HATs work without an external MCLK (mainline `snd_soc_wm8960` fails here)
+- **Dynamic overlay loading** via systemd service with 5-retry I2C detection — no `config.txt` overlay races or boot failures
+- **Boot-time DKMS auto-rebuild** — transparently handles Pi OS kernel-update edge cases
+- **PipeWire, PulseAudio, and ALSA** auto-detected and configured on install
+- **WebRTC AEC3 echo cancellation** (~30dB attenuation) for voice assistants
+- **User utilities** — `test-audio.sh` (10-check diagnostic, or 8 with `--quick`), `wm8960-diag` (bug-report dump), `wm8960-volume` (preset manager)
+- **Clean uninstall** — `# wm8960-managed` tagged config.txt lines, backup restore, idempotent re-install
 
 ## Prerequisites
 
-Before installing the WM8960 Audio HAT drivers, ensure you have:
+- Raspberry Pi with 40-pin GPIO header
+- WM8960 Audio HAT seated on GPIO pins
+- Raspberry Pi OS (32-bit or 64-bit, Trixie or newer recommended)
+- Internet connection and sudo access
 
-- **Hardware:**
-  - Raspberry Pi (any model with 40-pin GPIO header)
-  - WM8960 Audio HAT hardware properly seated on GPIO pins
-  
-- **Software:**
-  - Raspberry Pi OS installed (32-bit or 64-bit, Trixie or newer recommended)
-  - Internet connection for downloading dependencies
-  - Root/sudo access
-  
-- **System Preparation:** Ensure your system is fully updated and rebooted before installation. See [Installation Steps](#installation-steps) below.
+## Tested Configurations
 
-## Installation Steps
+These combinations are verified to work on real hardware:
 
-### 1. Update System and Reboot
-First, ensure your system is up to date. **You must reboot after upgrading** so the install script builds the driver for the correct kernel:
+| Pi Model | OS | Kernel | Status |
+|----------|-----|--------|--------|
+| Raspberry Pi Zero 2W | Raspberry Pi OS Lite Trixie (64-bit) | 6.12.75+rpt-rpi-v8 | Primary test platform |
+| Other 40-pin Pi models | Raspberry Pi OS Trixie or newer | 6.6+ | Should work (same kernel APIs) — please report results |
+
+The driver uses DKMS with kernel compatibility wrappers for 6.13+, and the boot-time auto-rebuild handles cross-kernel scenarios automatically.
+
+## Quick Install
+
 ```bash
-sudo apt update
-sudo apt upgrade -y
+# Update system and reboot first (recommended — the installer will warn if a kernel update is pending)
+sudo apt update && sudo apt upgrade -y
 sudo reboot
-```
 
-> **Why reboot first?** The install script builds the kernel module for the *running* kernel. If you upgrade the kernel and install without rebooting, the module gets built for the old kernel. On the next boot into the new kernel, the service will auto-rebuild the DKMS module (~30s extra boot time), but audio will still not work until a **second reboot** loads the freshly built module. Rebooting first avoids this entirely.
-
-### 2. Install Git
-Install Git if not already present:
-```bash
+# After reboot, clone and install
 sudo apt install git -y
-```
-
-### 3. Clone Repository
-Clone this repository to your Raspberry Pi:
-```bash
 git clone https://github.com/MJD19994/WM8960_AudioHAT_Drivers.git
 cd WM8960_AudioHAT_Drivers
-```
-
-### 4. Make Installation Script Executable
-**Important:** You must make the script executable before running it:
-```bash
-sudo chmod +x install.sh
-```
-
-### 5. Run Installation Script
-Execute the installation script with root privileges:
-```bash
-sudo ./install.sh
-```
-
-The installation script will:
-1. Check for pending kernel updates (warns if reboot needed)
-2. Update package lists with `apt update`
-3. Install Linux kernel headers, DKMS, git, i2c-tools, and ALSA plugins
-4. Configure I2C in `/boot/firmware/config.txt` with `# wm8960-managed` tags
-5. Compile and install the wm8960-soundcard kernel module via DKMS
-6. Copy the device tree overlay to `/boot/firmware/overlays/`
-7. Configure kernel modules in `/etc/modules` (add i2c-dev)
-8. Enable I2S-MMAP overlay in config.txt
-9. Install ALSA configuration files to `/etc/wm8960-soundcard/`
-10. Conditionally install PipeWire/PulseAudio default device configs (if detected)
-11. Install the systemd service script, volume utility, and logrotate config
-12. Install and enable the systemd service
-13. Validate the installation (DKMS, overlay, service, ALSA, config.txt)
-
-**Note:** The script does NOT add `dtoverlay=wm8960-soundcard` to config.txt - the overlay is loaded dynamically by the service for better reliability.
-
-### 6. Reboot System
-After installation completes, reboot your Raspberry Pi:
-```bash
+sudo bash install.sh
 sudo reboot
 ```
 
-## Verification Procedures
+The installer performs 13 steps and is idempotent (safe to re-run). It runs a pre-flight check that warns you if a kernel update is pending reboot, and the service will auto-rebuild the DKMS module at boot if the kernel changes later. For detailed steps, options (`--skip-pipewire`, `--skip-pulseaudio`, `--yes`), and manual verification, see **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
 
-After rebooting, perform the following checks to verify the installation. All seven checks should pass for a successful installation:
+## Quick Verification
 
-### Check 1: Service Status
-Verify the WM8960 service is active and loaded successfully:
-```bash
-sudo systemctl status wm8960-soundcard.service
-```
-**Expected output:** 
-- Service should show as "active (exited)" with green dot
-- Status should indicate "Loaded: loaded" and "Active: active (exited)"
-- No error messages in the service log output
-- Example: `Active: active (exited) since ...`
-
-### Check 2: I2C Device Detection
-Check if the WM8960 codec is detected on the I2C bus:
-```bash
-sudo i2cdetect -y 1
-```
-**Expected output:** 
-- A grid showing I2C addresses
-- You should see "1a" or "UU" at address 0x1a (row 10, column a)
-- "1a" means device detected but not in use by a driver
-- "UU" means device detected and in use by a driver (preferred)
-- Example:
-  ```
-       0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-  00:          -- -- -- -- -- -- -- -- -- -- -- -- -- 
-  10: -- -- -- -- -- -- -- -- -- -- UU -- -- -- -- -- 
-  20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-  ```
-
-### Check 3: Kernel Module
-Verify the sound card driver modules are loaded:
-```bash
-lsmod | grep snd_soc
-```
-**Expected output:** 
-- Multiple snd_soc modules should be listed
-- Should include entries like:
-  - `snd_soc_wm8960_soundcard` - The WM8960 soundcard driver
-  - `snd_soc_wm8960` - The WM8960 codec driver
-  - `snd_soc_core` - ALSA SoC core
-  - `snd_soc_bcm2835_i2s` - Raspberry Pi I2S interface
-- Example:
-  ```
-  snd_soc_wm8960_soundcard    16384  0
-  snd_soc_wm8960             40960  1
-  snd_soc_bcm2835_i2s        20480  2
-  snd_soc_core              200000  3
-  ```
-
-### Check 4: Sound Cards
-List all available sound cards:
-```bash
-cat /proc/asound/cards
-```
-**Expected output:** 
-- Should show "wm8960soundcard" in the list
-- Typically appears as card 0, 1, or 2 depending on other audio hardware
-- Example:
-  ```
-   0 [vc4hdmi       ]: vc4-hdmi - vc4-hdmi
-                      vc4-hdmi
-   1 [wm8960soundcard]: wm8960-soundcard - wm8960-soundcard
-                      wm8960-soundcard
-  ```
-
-### Check 5: Playback Devices
-Check available playback (speaker/headphone) devices:
-```bash
-aplay -l
-```
-**Expected output:** 
-- Should list the WM8960 sound card with available playback devices
-- Shows card number, device number, and subdevices
-- Example:
-  ```
-  card 1: wm8960soundcard [wm8960-soundcard], device 0: bcm2835-i2s-wm8960-hifi wm8960-hifi-0 [bcm2835-i2s-wm8960-hifi wm8960-hifi-0]
-    Subdevices: 1/1
-    Subdevice #0: subdevice #0
-  ```
-
-### Check 6: Recording Devices
-Check available recording (microphone) devices:
-```bash
-arecord -l
-```
-**Expected output:** 
-- Should list the WM8960 sound card with available capture devices
-- Shows card number and capture capabilities
-- Example:
-  ```
-  card 1: wm8960soundcard [wm8960-soundcard], device 0: bcm2835-i2s-wm8960-hifi wm8960-hifi-0 [bcm2835-i2s-wm8960-hifi wm8960-hifi-0]
-    Subdevices: 1/1
-    Subdevice #0: subdevice #0
-  ```
-
-### Check 7: Service Logs
-Review the initialization logs for any issues:
-```bash
-sudo cat /var/log/wm8960-soundcard.log
-```
-**Expected output:**
-- Log should show successful codec detection at I2C address 0x1a
-- Should show DKMS module status check
-- Should show successful overlay loading and ALSA configuration
-- Should end with health checks passing and "WM8960 service initialization complete successfully"
-- No error messages or warnings about missing devices
-- Example log entries:
-  ```text
-  [2026-03-09 20:36:46] Starting WM8960 soundcard initialization...
-  [2026-03-09 20:36:48] DKMS module wm8960-soundcard/1.0 is installed for kernel 6.12.62+rpt-rpi-v8
-  [2026-03-09 20:36:48] Verifying I2C interface is available...
-  [2026-03-09 20:36:48] I2C interface verified
-  [2026-03-09 20:36:48] Loading i2c-dev kernel module...
-  [2026-03-09 20:36:53] Detecting WM8960 codec on I2C bus 1 at address 0x1a...
-  [2026-03-09 20:36:53] WM8960 codec detected on attempt 1
-  [2026-03-09 20:36:53] SUCCESS: WM8960 codec detected at I2C address 0x1a (value: 1a)
-  [2026-03-09 20:36:53] Loading wm8960-soundcard device tree overlay...
-  [2026-03-09 20:36:53] Device tree overlay loaded successfully
-  [2026-03-09 20:36:54] ✓ Health check passed: WM8960 kernel module loaded
-  [2026-03-09 20:36:54] ✓ Health check passed: WM8960 sound card visible to ALSA
-  [2026-03-09 20:36:54] ✓ Health check passed: WM8960 playback devices available
-  [2026-03-09 20:36:54] WM8960 service initialization complete successfully
-  ```
-
-### Additional Check: DKMS Status
-Verify the DKMS module is properly installed:
-```bash
-sudo dkms status
-```
-**Expected output:**
-- Should show wm8960-soundcard module installed for your kernel version
-- Example:
-  ```
-  wm8960-soundcard/1.0, 5.15.84-v8+, aarch64: installed
-  ```
-
-If all seven checks pass, your WM8960 Audio HAT is properly installed and ready to use!
-
-### Quick Verification: Automated Test Script
-
-Instead of running the manual checks above, you can use the automated test script to verify everything at once:
+After rebooting, run the test suite:
 
 ```bash
-# Full test including interactive speaker and microphone checks
 cd ~/WM8960_AudioHAT_Drivers
-sudo bash test-audio.sh
-
-# Quick automated checks only (no audio playback/recording)
-cd ~/WM8960_AudioHAT_Drivers
-sudo bash test-audio.sh --quick
+sudo bash test-audio.sh                # full 10-check test (8 automated + 2 interactive)
+sudo bash test-audio.sh --quick        # 8 automated checks only (skips speaker/mic tests)
 ```
 
-The test script runs 10 checks:
-1. Systemd service status (active/enabled)
-2. DKMS module installed for running kernel
-3. I2C codec detection at address 0x1a
-4. Kernel module verification (codec + soundcard)
-5. Sound card visible in ALSA
-6. Playback device available
-7. Capture device available
-8. ALSA configuration symlink correct
-9. Speaker playback test (interactive - plays tone, asks for confirmation)
-10. Microphone capture test (interactive - records 3s, plays back, asks for confirmation)
+The 8 automated checks cover: service status, DKMS module, I2C detection, kernel modules, sound card, playback device, capture device, and ALSA configuration. The full test adds interactive speaker playback and microphone capture tests (checks 9 and 10), so you can hear the audio working end-to-end. Use `--quick` for CI or headless setups where no one can confirm interactive prompts.
 
-Checks 9-10 are automatically skipped in `--quick` mode or when running non-interactively (e.g., piped or in a script). The exit code equals the number of failed tests (0 = all pass).
+For manual verification steps, see [docs/INSTALLATION.md#manual-verification](docs/INSTALLATION.md#manual-verification).
 
-**Note:** For detailed DKMS auto-rebuild diagnostics, review the service log: `sudo cat /var/log/wm8960-soundcard.log`
+## Audio Server Support
 
-## Required config.txt Settings
+The installer automatically detects your audio server and deploys the right config — no manual setup required.
 
-The WM8960 driver requires specific settings in `/boot/firmware/config.txt` (or `/boot/config.txt` on older systems) for proper operation. The install script adds these automatically, but if you experience issues, verify these settings are present:
-
-### Minimum Required Settings
-
-Your config.txt must have the following in the `[all]` section (or at least not in a platform-specific section):
-
-```
-# Required: Enable I2C interface for codec communication
-dtparam=i2c_arm=on
-```
-
-**Important Notes:**
-- The `dtparam=i2c_arm=on` setting must ONLY appear ONCE in config.txt
-- It should be in the `[all]` section to work on all Raspberry Pi models
-- The WM8960 service script no longer calls `dtparam i2c_arm=on` to avoid duplicate entries
-- Multiple dtparam calls accumulate in the device tree overlay list, wasting kernel memory and potentially causing driver initialization failures
-
-### Known Conflicts
-
-**⚠️ dtoverlay=i2s-mmap Conflict:**
-
-The install script adds `dtoverlay=i2s-mmap` to config.txt, which is required for proper I2S memory-mapped interface. However, if you are experiencing issues or have a custom audio setup, you may need to remove this overlay.
-
-**Known conflict symptoms:**
-- Silent failures during audio playback
-- Unexpected audio routing behavior
-- Service initialization failures related to I2S
-
-**If you experience these issues:**
-1. Edit your config.txt:
-   ```bash
-   sudo nano /boot/firmware/config.txt
-   ```
-
-2. Comment out or remove the i2s-mmap line:
-   ```
-   # dtoverlay=i2s-mmap  # Commented out due to conflict
-   ```
-
-3. Reboot:
-   ```bash
-   sudo reboot
-   ```
-
-### Example config.txt [all] Section
-
-Here's an example of a properly configured `[all]` section in config.txt:
-
-```
-[all]
-# Enable I2C for WM8960 codec
-dtparam=i2c_arm=on
-
-# Enable I2S interface (added by install script)
-dtoverlay=i2s-mmap
-
-# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection
-# Do NOT add: dtoverlay=wm8960-soundcard
-```
-
-### Verifying Your Configuration
-
-After boot, verify your overlay configuration:
-
-```bash
-# Check loaded overlays (should show i2c_arm and wm8960-soundcard after service starts)
-sudo dtoverlay -l
-
-# Verify i2c_arm appears only once in the overlay list
-# (Count should be 1, not multiple instances)
-sudo dtoverlay -l | grep "i2c_arm" | wc -l
-# Expected output: 1
-```
-
-## Configuration Files
-
-### /boot/firmware/config.txt
-
-**Important:** Do NOT manually add WM8960 overlay entries to this file!
-
-The `/boot/firmware/config.txt` file is the Raspberry Pi's hardware configuration file. For the WM8960 driver, the overlay is loaded dynamically by the service script, NOT statically in config.txt. This is intentional and crucial for proper operation.
-
-If you previously added lines like:
-```
-dtoverlay=wm8960-soundcard
-```
-You should remove them to prevent conflicts with dynamic loading.
-
-### /etc/wm8960-soundcard/asound.conf
-
-This is the ALSA configuration file for the WM8960 sound card. It defines:
-
-- **Default sound card:** Sets WM8960 as the default audio device (card 0)
-- **Playback settings:** Configures playback through the dmix plugin for software mixing
-- **Mixer control:** Ensures ALSA mixer controls the correct hardware card
-
-The file is symlinked to `/etc/asound.conf` by the initialization service. To customize audio settings, edit this file and restart the service.
-
-### /etc/wm8960-soundcard/wm8960_asound.state
-
-This file stores the ALSA mixer state including:
-
-- Volume levels for playback and capture
-- Mute/unmute states for various channels
-- Routing configurations
-- Hardware-specific control settings
-
-The file is symlinked to `/var/lib/alsa/asound.state` by the initialization service. ALSA automatically restores these settings on boot. To modify:
-
-1. Use `alsamixer` to adjust settings
-2. Save with `sudo alsactl store`
-
-## Dynamic Loading Explanation
-
-### Why Dynamic Loading?
-
-The WM8960 driver uses **dynamic loading** instead of static loading in `/boot/firmware/config.txt` for several important reasons:
-
-#### Problems with Static Loading:
-
-1. **Race Conditions:** If the overlay is loaded in config.txt, it loads before the I2C bus is fully initialized, causing detection failures.
-
-2. **Initialization Order:** The codec needs time after boot to be ready on the I2C bus. Static loading doesn't provide this delay.
-
-3. **Boot Failures:** If the hardware isn't connected or has issues, static overlays can cause boot problems or kernel warnings.
-
-4. **No Detection Logic:** Static loading doesn't verify the codec is present before attempting to load drivers.
-
-### Device Tree Overlay Conflict Resolution
-
-#### The Solution:
-
-The WM8960 kernel module now uses a **unique platform driver name** (`asoc-wm8960-soundcard`) that does not conflict with Raspberry Pi's built-in audio drivers. This eliminates the need for workarounds.
-
-#### Benefits of This Approach:
-
-- **Clean Design:** No naming conflicts with built-in drivers
-- **Reliable Operation:** No need to disable the default `/sound` node
-- **Simplified Installation:** Works out of the box without manual intervention
-- **Better Error Messages:** Clear indication if something goes wrong
-- **Follows Best Practices:** Uses unique, descriptive driver naming conventions
-
-#### Additional Reasons for Dynamic Loading
-
-While the driver name conflict is resolved, the WM8960 driver still uses **dynamic loading** instead of static loading in `/boot/firmware/config.txt` for other important reasons:
-
-1. **I2C Detection:** The service verifies the codec is present on the I2C bus before loading drivers
-2. **Proper Timing:** Allows time for the I2C bus and codec to be ready after boot
-3. **Graceful Failure:** If hardware isn't connected, the system boots normally without errors
-4. **Configuration Management:** Ensures ALSA configuration files are properly linked before audio initialization
-
-### How Our Solution Works:
-
-1. **Service-Based Initialization:** The `wm8960-soundcard.service` runs after multi-user.target, ensuring proper boot sequence. The service doesn't require network connectivity as I2C is a local hardware interface.
-
-2. **I2C Detection:** The service script (`wm8960-soundcard.sh`) actively detects the codec on I2C bus 1 at address 0x1a with multiple retry attempts (up to 5 attempts with delays).
-
-3. **No Driver Conflicts:** The WM8960 driver uses the unique name `asoc-wm8960-soundcard`, avoiding any conflicts with built-in drivers.
-
-4. **Conditional Loading:** The overlay is only loaded via `dtoverlay` command if the codec is successfully detected.
-
-5. **Configuration Management:** After successful detection, the service creates proper symlinks for ALSA configuration files, ensuring mixer settings are applied correctly.
-
-6. **Graceful Failure:** If the codec isn't detected, the service exits with an error code, making it easy to diagnose hardware issues.
-
-This approach provides:
-- **No driver conflicts:** By using a unique driver name
-- **Reliable hardware detection:** Multiple detection attempts with proper delays
-- **Better error handling:** Clear error messages if hardware isn't found
-- **Cleaner boot process:** No kernel warnings or registration errors
-- **Easier troubleshooting:** Service logs show exactly what happened during initialization
-- **Proper I2S interface:** Using i2s-mmap overlay for memory-mapped I2S access
-
-## PipeWire and PulseAudio Support
-
-The install script automatically detects your audio server and configures the WM8960 as the default audio device. No manual configuration is needed.
-
-| Audio Server | Auto-detected? | Config deployed to |
+| Audio Server | Auto-detected? | Config Installed |
 |---|---|---|
-| PipeWire/WirePlumber | Yes | `/etc/wireplumber/wireplumber.conf.d/40-wm8960-default.conf` |
+| PipeWire / WirePlumber | Yes | `/etc/wireplumber/wireplumber.conf.d/40-wm8960-default.conf` |
 | PulseAudio (native) | Yes | `/etc/pulse/default.pa.d/wm8960-default.pa` |
-| pipewire-pulse | Yes (uses WirePlumber config) | WirePlumber rules handle defaults |
-| ALSA-only (headless) | N/A | No extra config needed, `asound.conf` handles it |
+| `pipewire-pulse` | Yes (uses WirePlumber config) | WirePlumber rules handle defaults |
+| ALSA-only (headless) | N/A | `asound.conf` handles routing |
 
-### PipeWire (Raspberry Pi OS Trixie Desktop)
+For dedicated setup guides, see the **[PipeWire README](pipewire/README.md)** and **[PulseAudio README](pulseaudio/README.md)**.
 
-If WirePlumber is installed, the installer deploys a priority rule that makes the WM8960 the default sink (output) and source (input), with higher priority than HDMI audio.
+## Echo Cancellation
 
-- **Config location:** `/etc/wireplumber/wireplumber.conf.d/40-wm8960-default.conf`
-- **Verify with:** `wpctl status` (WM8960 should show as default sink/source with an asterisk)
-- **Switch to HDMI:** `wpctl set-default <hdmi-node-id>` (get the ID from `wpctl status`)
+WebRTC AEC3 echo cancellation is available for voice assistant and conferencing use cases (~30dB attenuation). Supports bare ALSA (loopback router), PipeWire, and PulseAudio.
 
-For full setup instructions, troubleshooting, and manual configuration, see the **[PipeWire Setup Guide](pipewire/README.md)**.
-
-### PulseAudio (Legacy Setups)
-
-If native PulseAudio is installed (not `pipewire-pulse`), the installer deploys a config snippet that sets the WM8960 as the default sink and source.
-
-- **Config location:** `/etc/pulse/default.pa.d/wm8960-default.pa`
-- **Verify with:** `pactl info` (Default Sink/Source should reference `wm8960`)
-- **Switch to HDMI:** `pactl set-default-sink <hdmi-sink-name>` (get name from `pactl list sinks short`)
-
-For full setup instructions, troubleshooting, and manual configuration, see the **[PulseAudio Setup Guide](pulseaudio/README.md)**.
-
-### ALSA-Only (Headless / Pi OS Lite)
-
-No PipeWire or PulseAudio configuration is installed. The existing ALSA `asound.conf` handles default device routing. This is the recommended setup for headless and voice assistant use cases.
-
-To add PipeWire support later, install the packages and re-run the install script:
 ```bash
-sudo apt install pipewire pipewire-pulse wireplumber
+cd tools/echo-cancel
 sudo bash install.sh
 ```
 
-## Advanced Configuration
+When running, all audio must go through the loopback devices (`hw:Loopback,0,0` for playback, `hw:Loopback,1,1` for clean mic capture). For full documentation, tuning flags, and testing instructions, see **[tools/echo-cancel/README.md](tools/echo-cancel/README.md)**.
 
-### Adjusting Sample Rates
+## Mixer Controls
 
-To change the default sample rate, you can modify the ALSA configuration:
+### Interactive (alsamixer)
 
-```bash
-sudo nano /etc/wm8960-soundcard/asound.conf
-```
+For general volume and mute control, use the standard ALSA mixer:
 
-Add rate conversion parameters to the PCM definition:
-```
-pcm.!default {
-    type plug
-    slave {
-        pcm "dmix"
-        rate 48000
-    }
-}
-```
-
-### Custom Mixer Settings
-
-Use `alsamixer` to adjust audio levels:
 ```bash
 alsamixer
 ```
 
-Press F6 to select the WM8960 sound card, then adjust:
+Press **F6** to select the WM8960 sound card, then adjust:
 - PCM playback volume
-- Headphone volume
-- Speaker volume
+- Headphone / Speaker volume
 - Capture volume (microphone)
 - Input source selection
 
-Save your settings:
+Press **M** to toggle mute on a selected channel. Save changes with `sudo alsactl store`.
+
+### Volume Presets
+
+The `wm8960-volume` utility provides tested, known-good mixer settings for common use cases — faster than adjusting individual controls in alsamixer:
+
+```bash
+sudo wm8960-volume speakers        # Moderate speaker volume, headphones muted
+sudo wm8960-volume headphones      # Comfortable headphone volume, speakers muted
+sudo wm8960-volume recording       # Mic capture with moderate gain, ALC off
+sudo wm8960-volume voice           # Voice-assistant tuned: ALC + noise gate + HPF
+sudo wm8960-volume max             # Maximum safe volume for all outputs (loud!)
+sudo wm8960-volume reset           # Restore factory defaults
+sudo wm8960-volume show            # Display current levels
+```
+
+Save the chosen preset across reboots with `sudo alsactl store`. For all presets, tuning flags, and a complete ALSA control reference, see [docs/CONFIGURATION.md#volume-presets](docs/CONFIGURATION.md#volume-presets) and [docs/ALSA-Mixer-Controls.md](docs/ALSA-Mixer-Controls.md).
+
+## Testing Audio
+
+Quick ways to verify your HAT is working end-to-end and hear real audio through it.
+
+### Playback
+
+```bash
+# Stereo WAV test (says "front-left" / "front-right")
+speaker-test -t wav -c 2
+
+# 440 Hz sine tone for 3 seconds (useful for confirming a specific frequency plays)
+speaker-test -t sine -f 440 -l 3
+
+# Play a WAV file
+aplay /usr/share/sounds/alsa/Front_Center.wav
+
+# Play with a specific sample rate
+aplay -r 48000 your-file.wav
+
+# Play directly to the WM8960 hardware (bypasses ALSA mixing)
+aplay -D plughw:wm8960soundcard,0 your-file.wav
+```
+
+### Recording
+
+```bash
+# Record 10 seconds at CD quality (44.1kHz stereo)
+arecord -d 10 -f cd -t wav test.wav
+
+# Record 16kHz mono (voice assistant format)
+arecord -d 5 -r 16000 -c 1 -f S16_LE -t wav voice.wav
+
+# Play back the recording
+aplay test.wav
+
+# Record and save with today's timestamp
+arecord -d 10 -f cd -t wav "recording-$(date +%Y%m%d-%H%M%S).wav"
+```
+
+For ideas on what to do with the HAT once audio is working (Bluetooth, internet radio, TTS, voice assistants, monitoring), see [docs/CONFIGURATION.md#use-cases](docs/CONFIGURATION.md#use-cases).
+
+For automated diagnostics and interactive speaker/mic verification, use the built-in test script:
+
+```bash
+sudo bash test-audio.sh          # full interactive test suite
+sudo bash test-audio.sh --quick   # automated checks only
+```
+
+## Persisting Audio Settings
+
+ALSA mixer settings (volume, mute state, etc.) do **not** persist across reboots by default — this is standard ALSA practice. After tuning with `alsamixer` or `wm8960-volume`, save manually:
+
 ```bash
 sudo alsactl store
 ```
 
-### Volume Presets
-
-The `wm8960-volume` utility provides tested, known-good mixer settings for common use cases. This is easier than manually adjusting individual controls in alsamixer.
+**Optional auto-save** — for consumer devices or convenience, you can enable a systemd timer that automatically saves settings every 6 hours (waits 30 minutes after boot first, so you have time to configure):
 
 ```bash
-sudo wm8960-volume <preset>
+sudo systemctl enable --now wm8960-alsa-store.timer
 ```
 
-Available presets:
-
-| Preset | Description |
-|--------|-------------|
-| `speakers` | Moderate speaker volume (0dB), headphones muted, Class D boost enabled |
-| `headphones` | Comfortable headphone volume (-6dB), speakers muted, zero-cross enabled |
-| `recording` | Mic capture with moderate gain, ALC off for clean manual control |
-| `voice` | Optimized for voice assistants: ALC stereo + noise gate + high-pass filter |
-| `max` | Maximum safe volume for all outputs (loud!) |
-| `reset` | Restore factory defaults from the shipped state file |
-| `show` | Display current output, input, and processing levels |
-
-**Examples:**
-```bash
-# Set up for speaker playback
-sudo wm8960-volume speakers
-
-# Optimize microphone for voice assistant use
-sudo wm8960-volume voice
-
-# Check what's currently set
-sudo wm8960-volume show
-
-# Back to factory defaults
-sudo wm8960-volume reset
-```
-
-**The `voice` preset** is specifically tuned for voice assistant and speech recognition use cases. It enables:
-- Hardware ALC (Automatic Level Control) in stereo mode targeting -12dB
-- Noise gate to cut silence noise
-- ADC high-pass filter to remove DC offset and low-frequency rumble
-- Speaker output at reduced volume to minimize echo feedback
-
-**Note:** After switching presets, you can save the new settings with `sudo alsactl store` to make them persist across reboots.
-
-## Saving Audio Settings
-
-### Default Behavior: Manual Save
-
-By default, ALSA mixer settings (volume, mute state, etc.) **do not persist** across reboots unless you manually save them. This follows standard ALSA practice and gives you full control over when settings are saved.
-
-**To save your audio settings:**
-
-1. Configure your audio settings using `alsamixer` or other mixer tools:
-   ```bash
-   alsamixer
-   ```
-
-2. Save your settings manually:
-   ```bash
-   sudo alsactl store
-   ```
-
-Your settings will now persist across reboots.
-
-**Why manual save?**
-- Prevents accidental changes from being saved
-- Gives you explicit control over your saved configuration
-- Standard ALSA behavior that advanced users expect
-- Suitable for development and testing environments
-
-### Optional: Automatic Saving
-
-For consumer devices or users who want convenience, you can enable automatic saving of ALSA mixer settings. When enabled, the auto-save timer will:
-- Wait 30 minutes after boot (giving you time to configure settings)
-- Save settings every 6 hours thereafter
-- Automatically clean up old backup files (keeps last 5 backups)
-
-**To enable auto-save:**
-```bash
-sudo systemctl enable wm8960-alsa-store.timer
-sudo systemctl start wm8960-alsa-store.timer
-```
-
-**To disable auto-save:**
-```bash
-sudo systemctl stop wm8960-alsa-store.timer
-sudo systemctl disable wm8960-alsa-store.timer
-```
-
-**To check auto-save status:**
-```bash
-# Check if timer is enabled and when it will run next
-sudo systemctl status wm8960-alsa-store.timer
-
-# View auto-save logs
-sudo journalctl -u wm8960-alsa-store.service -n 50
-```
-
-**To manually trigger an auto-save:**
-```bash
-sudo systemctl start wm8960-alsa-store.service
-```
-
-### Backup Management
-
-The system automatically manages backup files to prevent disk space issues:
-
-- **Boot-time cleanup:** Keeps last 10 backups (for manual save users)
-- **Auto-save cleanup:** Keeps last 5 backups (for frequent save users)
-
-Backup files are stored in `/var/lib/alsa/` with names like `asound.state.backup.YYYYMMDD_HHMMSS`.
-
-You can safely delete old backups manually if needed:
-```bash
-# List all backup files
-ls -lh /var/lib/alsa/asound.state.backup.*
-
-# Delete backups older than 30 days (optional)
-find /var/lib/alsa/ -name "asound.state.backup.*" -mtime +30 -delete
-```
-
-### Testing Audio Playback
-
-Test speaker output:
-```bash
-speaker-test -t wav -c 2
-```
-
-Play a WAV file:
-```bash
-aplay /usr/share/sounds/alsa/Front_Center.wav
-```
-
-### Testing Audio Recording
-
-Record a 10-second audio sample:
-```bash
-arecord -d 10 -f cd -t wav test.wav
-```
-
-Play back the recording:
-```bash
-aplay test.wav
-```
-
-### Service Management
-
-Enable service to start on boot (usually enabled by default):
-```bash
-sudo systemctl enable wm8960-soundcard.service
-```
-
-Disable service:
-```bash
-sudo systemctl disable wm8960-soundcard.service
-```
-
-Restart service after configuration changes:
-```bash
-sudo systemctl restart wm8960-soundcard.service
-```
-
-## Troubleshooting
-
-### Issue 1: Service Fails to Start
-
-**Symptoms:** Service shows as "failed" in systemctl status
-
-**Solutions:**
-1. Check service logs: `sudo journalctl -u wm8960-soundcard.service -n 50`
-2. Verify I2C is enabled: `sudo raspi-config` → Interface Options → I2C
-3. Check hardware connection and power
-4. Review detailed logs: `sudo cat /var/log/wm8960-soundcard.log`
-
-### Issue 2: Codec Not Detected
-
-**Symptoms:** i2cdetect doesn't show device at 0x1a
-
-**Solutions:**
-1. Verify HAT is properly seated on GPIO header
-2. Check for hardware damage or loose connections
-3. Check I2C is enabled: The install script automatically adds `dtparam=i2c_arm=on` to `/boot/firmware/config.txt` in the [all] section
-4. Reboot and test again
-5. Try different I2C address if your HAT uses a different one
-
-### Issue 3: Audio Broke After Kernel Update
-
-**Symptoms:** Audio was working, then stopped after running `apt upgrade` and rebooting. `dmesg` shows `No MCLK configured`.
-
-**Cause:** The DKMS module wasn't rebuilt for the new kernel. This can happen due to a Raspberry Pi OS packaging race condition where kernel headers install after the kernel image.
-
-**Solutions:**
-1. Check the service log: `sudo cat /var/log/wm8960-soundcard.log`
-   - If you see "DKMS auto-rebuild completed successfully", the service fixed it automatically. A second reboot should work.
-   - If you see "Kernel headers not found", install them: `sudo apt install linux-headers-$(uname -r)` then `sudo systemctl restart wm8960-soundcard.service`
-2. Manual rebuild: `sudo dkms install wm8960-soundcard/1.0 -k $(uname -r)` then reboot
-3. Verify: `sudo dkms status` should show your kernel version as "installed"
-
-**Prevention:** The service script automatically detects and rebuilds the DKMS module on boot if needed. This adds ~30 seconds to boot time only when a rebuild is required.
-
-### Issue 4: No Sound Output
-
-**Symptoms:** Audio files play but no sound is heard
-
-**Solutions:**
-1. Check volume levels: `alsamixer` (press F6 to select WM8960 card)
-2. Unmute channels: Press 'M' key in alsamixer
-3. Verify correct output device: `aplay -l` then use `-D hw:X,Y` flag
-4. Check physical connections to speakers/headphones
-5. Test with: `speaker-test -t wav -c 2 -D hw:CARD=wm8960soundcard,DEV=0`
-
-### Issue 5: Wrong Card Order
-
-**Symptoms:** WM8960 is not the default audio device
-
-**Solutions:**
-1. Check card order: `cat /proc/asound/cards`
-2. Edit `/etc/wm8960-soundcard/asound.conf` to set correct card number
-3. Or use device-specific commands: `aplay -D plughw:CARD=wm8960soundcard file.wav`
-4. Restart service: `sudo systemctl restart wm8960-soundcard.service`
-
-### Issue 6: Recording Not Working
-
-**Symptoms:** arecord produces empty or silent files
-
-**Solutions:**
-1. Select correct input source in alsamixer
-2. Increase capture volume (usually low by default)
-3. Check input is not muted in alsamixer
-4. Verify microphone connection and power (if external)
-5. Test with: `arecord -f cd -d 5 test.wav && aplay test.wav`
-
-### Issue 7: Overlay Loading Errors
-
-**Symptoms:** dmesg shows overlay-related errors
-
-**Solutions:**
-1. Remove any WM8960 overlay entries from `/boot/firmware/config.txt`
-2. Let the service handle dynamic loading only
-3. Check kernel version compatibility: `uname -r`
-4. Ensure kernel headers match kernel version
-5. Reinstall if needed: `sudo ./install.sh`
-
-### Issue 8: Conflicts with Other Audio Devices
-
-**Symptoms:** Multiple audio devices causing conflicts
-
-**Solutions:**
-1. Disable on-board audio if not needed: `dtparam=audio=off` in `/boot/firmware/config.txt`
-2. Blacklist conflicting modules in `/etc/modprobe.d/blacklist.conf`
-3. Set explicit default device in `~/.asoundrc` or `/etc/asound.conf`
-4. Reboot after changes
-
-### Issue 9: Service Logs Show Errors
-
-**Symptoms:** Errors visible in /var/log/wm8960-soundcard.log
-
-**Solutions:**
-1. Check for I2C errors indicating hardware issues
-2. Verify all required kernel modules are available: `lsmod | grep snd`
-3. Ensure i2c-tools is installed: `sudo apt install i2c-tools`
-4. Check file permissions for config files in `/etc/wm8960-soundcard/`
-5. Recreate symlinks manually if broken:
-   ```bash
-   sudo rm /etc/asound.conf /var/lib/alsa/asound.state
-   sudo ln -s /etc/wm8960-soundcard/asound.conf /etc/asound.conf
-   sudo ln -s /etc/wm8960-soundcard/wm8960_asound.state /var/lib/alsa/asound.state
-   ```
-
-### Issue 10: Audio Quality Problems
-
-**Symptoms:** Crackling, distortion, or stuttering audio
-
-**Solutions:**
-1. Lower sample rate in application or ALSA config
-2. Increase buffer size parameters
-3. Check CPU load: `top` or `htop`
-4. Disable unnecessary background services
-5. Ensure adequate power supply (quality USB power adapter)
-6. Update Raspberry Pi firmware: `sudo rpi-update`
-
-### Issue 11: Python Installation Fails
-
-**Symptoms:** pip3 install command fails during installation
-
-**Solutions:**
-1. Verify Python 3 is installed: `python3 --version`
-2. Update pip: `sudo pip3 install --upgrade pip`
-3. Check for disk space: `df -h`
-4. Install build dependencies: `sudo apt install python3-dev build-essential`
-5. Check install.sh completed without errors
-
-For additional troubleshooting information, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+Auto-save includes automatic backup rotation (keeps last 5 backups). See [docs/CONFIGURATION.md#saving-audio-settings](docs/CONFIGURATION.md#saving-audio-settings) for full details on manual vs. automatic saving and backup management.
 
 ## Uninstallation
 
-To completely remove the WM8960 drivers and all related files from your system:
-
-### 1. Make Uninstallation Script Executable
-**Important:** You must make the script executable before running it:
 ```bash
-sudo chmod +x uninstall.sh
-```
-
-### 2. Run Uninstallation Script
-Execute the uninstallation script with root privileges:
-```bash
-sudo ./uninstall.sh
-```
-
-The uninstallation script will:
-1. Stop and disable the wm8960-soundcard systemd service
-2. Stop and disable the ALSA auto-save timer
-3. Remove systemd service files and utilities from `/etc/systemd/system/` and `/usr/bin/`
-4. Remove ALSA WM8960 symlinks and restore previous config from backups
-5. Remove PipeWire and PulseAudio configuration files (if present)
-6. Remove the ALSA configuration directory (`/etc/wm8960-soundcard/`)
-7. Remove the service log file and logrotate config
-8. Remove the DKMS kernel module
-9. Remove DKMS source files from `/usr/src/wm8960-soundcard-1.0/`
-10. Remove the device tree overlay from `/boot/firmware/overlays/`
-11. Clean up `# wm8960-managed` tagged lines from config.txt (with backup)
-
-### 3. Manual Cleanup (Optional)
-
-The uninstall script automatically removes lines tagged with `# wm8960-managed` from `config.txt`. However, some system-level settings are preserved because they may be used by other software. If you want to completely remove everything:
-
-```bash
-# Check if any wm8960-managed lines remain in config.txt
-grep 'wm8960-managed' /boot/firmware/config.txt
-
-# If present, remove them manually (dtparam=i2c_arm=on and dtoverlay=i2s-mmap)
-sudo nano /boot/firmware/config.txt
-
-# Remove i2c-dev from /etc/modules if not needed by other hardware
-sudo nano /etc/modules
-# Remove line: i2c-dev
-
-# Optionally remove packages (only if not needed by other software)
-sudo apt-get remove --purge dkms i2c-tools libasound2-plugins
-sudo apt-get autoremove
-```
-
-### 4. Reboot
-Reboot your system to complete the removal:
-```bash
+cd ~/WM8960_AudioHAT_Drivers
+sudo bash uninstall.sh
 sudo reboot
 ```
 
-After rebooting, verify the removal:
-- Check DKMS status: `sudo dkms status` (should not show wm8960-soundcard)
-- Check sound cards: `cat /proc/asound/cards` (should not show wm8960soundcard)
-- Check service status: `sudo systemctl status wm8960-soundcard.service` (should show "not found")
+The uninstaller removes the kernel module, device tree overlay, systemd services, ALSA configs, and `# wm8960-managed` tagged lines from `config.txt`. Packages like `dkms` and `i2c-tools` are preserved. For full details and optional manual cleanup, see [docs/INSTALLATION.md#uninstallation](docs/INSTALLATION.md#uninstallation).
+
+## Troubleshooting & Support
+
+**First, run diagnostics:**
+```bash
+sudo bash test-audio.sh --quick    # 8 automated checks (skips interactive tests)
+sudo wm8960-diag                   # full system dump (paste into GitHub issues)
+sudo cat /var/log/wm8960-soundcard.log
+```
+
+Common issues are documented in **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** — covers service failures, codec detection, kernel updates, audio quality problems, and more.
+
+**Getting help:**
+1. Check [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+2. Search existing [GitHub Issues](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/issues)
+3. Run `sudo wm8960-diag` and paste the output when [opening a new issue](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/issues/new)
+
+## Documentation
+
+| Document | Contents |
+|----------|----------|
+| [docs/INSTALLATION.md](docs/INSTALLATION.md) | Detailed install, installer options, manual verification, uninstallation |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | `config.txt` reference, ALSA files, dynamic loading, advanced tuning, auto-save |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Diagnostics and fixes for common issues |
+| [docs/ALSA-Mixer-Controls.md](docs/ALSA-Mixer-Controls.md) | Full WM8960 mixer control reference (Wyoming/Rhasspy tuning) |
+| [docs/LICENSING.md](docs/LICENSING.md) | Per-component license breakdown |
+| [pipewire/README.md](pipewire/README.md) | PipeWire setup guide |
+| [pulseaudio/README.md](pulseaudio/README.md) | PulseAudio setup guide |
+| [tools/echo-cancel/README.md](tools/echo-cancel/README.md) | WebRTC AEC3 echo canceller |
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This repository ships four top-level license tiers, one per top-level component, reflecting the origin of each. The `tools/echo-cancel/` directory additionally vendors a BSD-licensed PortAudio ring buffer (`pa_ringbuffer.*`, `pa_memorybarrier.h`) which retains its own header — this is GPL-compatible and is bundled inside the GPL-3.0-or-later tier rather than counted separately. These components are distributed separately (see [docs/LICENSING.md](docs/LICENSING.md) for details); if you are redistributing combined artifacts, review license obligations for your specific distribution model.
 
-## Support
+| Component | License | Why |
+|-----------|---------|-----|
+| Scripts, configs, overlays, service files, docs, and all files at the repo root | **MIT** — see [LICENSE](LICENSE) | Original work, kept permissive for maximum reuse |
+| [`kernel_module/`](kernel_module/) — DKMS kernel module source | **GPL-2.0-only** | Derived from the mainline Linux kernel `wm8960.c` codec driver (Copyright 2007–2011 Wolfson Microelectronics); kernel modules inherit the kernel's license |
+| [`dkms/snd-aloop/`](dkms/snd-aloop/) — optional DKMS fallback for the snd-aloop loopback module | **GPL-2.0-or-later** | Source taken from the Linux kernel tree under its original header terms; only used as a build fallback when the running kernel doesn't ship `snd-aloop` as a built-in module |
+| [`tools/echo-cancel/`](tools/echo-cancel/) — optional echo canceller | **GPL-3.0-or-later** — see [tools/echo-cancel/LICENSE-GPL3](tools/echo-cancel/LICENSE-GPL3) | SpeexDSP engine inherits GPLv3-compatible terms from [voice-engine/ec](https://github.com/voice-engine/ec); WebRTC engine is GPL-3.0-or-later by our choice for consistency. The vendored PortAudio ring buffer (`pa_ringbuffer.*`, `pa_memorybarrier.h`) retains its original BSD-style license. |
 
-### Getting Help
+If you only use the audio driver, you're working with MIT + GPL-2.0-only (standard kernel-module licensing). If you additionally install the echo canceller, GPL-3.0-or-later applies to that binary only.
 
-If you encounter issues:
+For per-file details, compatibility notes, and downstream-user guidance, see [docs/LICENSING.md](docs/LICENSING.md).
 
-1. **Check the Troubleshooting Section:** Most common problems are covered above
-2. **Review Logs:** Check `/var/log/wm8960-soundcard.log` and `sudo journalctl -u wm8960-soundcard.service`
-3. **Search Issues:** Look through existing [GitHub Issues](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/issues)
-4. **Open an Issue:** Create a new issue with:
-   - Raspberry Pi model and OS version
-   - Output of verification checks
-   - Relevant log files
-   - Description of the problem
-
-### Contributing
+## Contributing
 
 Contributions are welcome! Please:
+
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
+2. Create a feature branch off `main`
+3. Make your changes (run `sudo bash test-audio.sh --quick` on real hardware to verify)
 4. Submit a pull request
 
-### Resources
+For bug reports, run `sudo wm8960-diag` and include the output in your issue.
 
-- [WM8960 Datasheet](https://www.cirrus.com/products/wm8960/)
-- [Raspberry Pi Documentation](https://www.raspberrypi.org/documentation/)
-- [ALSA Project](https://www.alsa-project.org/)
+## Resources
 
-### Credits
+- [WM8960 Datasheet](https://www.cirrus.com/products/wm8960/) — Cirrus Logic (formerly Wolfson) product page
+- [Raspberry Pi Documentation](https://www.raspberrypi.org/documentation/) — official Pi docs
+- [ALSA Project](https://www.alsa-project.org/) — Advanced Linux Sound Architecture
+- [Device Tree Overlays](https://www.raspberrypi.com/documentation/computers/configuration.html#part2) — Pi overlay documentation
+- [DKMS Documentation](https://github.com/dell/dkms) — Dynamic Kernel Module Support
 
-Developed and maintained by the community. Special thanks to all contributors who have helped improve this driver package.
+**Related projects:**
+- [WM8960 Audio HAT for Armbian (Orange Pi Zero 2W)](https://github.com/MJD19994/WM8960_AudioHAT_Armbian_OPiZero2W) — sibling repo sharing echo-cancel source
+
+## Credits
+
+Developed and maintained by [MJD19994](https://github.com/MJD19994). Special thanks to:
+
+- **Wolfson Microelectronics / Cirrus Logic** — original mainline `wm8960.c` codec driver
+- **The Linux kernel community** — ALSA SoC framework and `snd-aloop` loopback module
+- **[voice-engine/ec](https://github.com/voice-engine/ec)** — SpeexDSP echo cancellation reference
+- **[SaneBow/alsa-aec](https://github.com/SaneBow/alsa-aec)** — ALSA AEC virtual device design
+- **[PortAudio](http://www.portaudio.com)** — vendored lock-free ring buffer for the WebRTC EC
+- **All contributors** who have helped improve this driver package

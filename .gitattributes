@@ -12,10 +12,12 @@
 # Scripts without extensions (installed to /usr/bin)
 wm8960-soundcard.sh text eol=lf
 wm8960-volume text eol=lf
+wm8960-diag text eol=lf
 wm8960-alsa-store text eol=lf
 
 # Kernel module source
 *.c text eol=lf
+*.cpp text eol=lf
 *.h text eol=lf
 *.dts text eol=lf
 Makefile text eol=lf
@@ -26,6 +28,10 @@ dkms.conf text eol=lf
 
 # CI/CD workflow files
 *.yml text eol=lf
+*.yaml text eol=lf
+
+# Documentation
+*.md text eol=lf
 
 # Binary overlay - do not modify
 *.dtbo binary

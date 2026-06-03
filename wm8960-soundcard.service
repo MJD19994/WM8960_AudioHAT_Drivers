@@ -1,6 +1,6 @@
 [Unit]
 Description=WM8960 soundcard service
-After=multi-user.target
+After=local-fs.target
 StartLimitIntervalSec=60s
 StartLimitBurst=3
 

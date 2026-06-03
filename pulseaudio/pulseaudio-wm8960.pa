@@ -1,4 +1,5 @@
 # WM8960 Audio HAT - PulseAudio configuration
+# wm8960-managed
 # Sets WM8960 as default sink/source
 # Installed by WM8960 Audio HAT Drivers install.sh
 #

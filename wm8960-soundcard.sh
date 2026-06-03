@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT
 # WM8960 Soundcard Service Script
 # This script dynamically loads the WM8960 overlay after detecting the I2C codec
 # It runs on boot via systemd service and ensures proper initialization order
@@ -25,7 +26,14 @@ log_error_exit() {
   exit "${2:-1}"
 }
 
-log_message "Starting WM8960 soundcard initialization..."
+WM8960_VERSION="unknown"
+if [ -f /etc/wm8960-soundcard/version ]; then
+  _version="$(tr -d '[:space:]' < /etc/wm8960-soundcard/version)"
+  if [ -n "$_version" ]; then
+    WM8960_VERSION="$_version"
+  fi
+fi
+log_message "Starting WM8960 soundcard initialization (v${WM8960_VERSION})..."
 
 # --- DKMS Auto-Rebuild Check ---
 # On Raspberry Pi OS, kernel updates often install the image before the headers.
@@ -46,14 +54,29 @@ ensure_dkms_module() {
     return 0
   fi
 
-  # Skip if DKMS source is not registered
-  if ! dkms status "$dkms_module/$dkms_version" 2>/dev/null | grep -q "$dkms_module"; then
-    log_message "DKMS module $dkms_module not registered, skipping auto-rebuild check"
+  # Query DKMS state with the GLOBAL form (well-defined exit code: 0 if
+  # dkms itself works, non-zero only on real failure). The module-scoped
+  # form `dkms status MODULE/VERSION` has explicitly undefined exit code
+  # semantics per the DKMS project, so a non-zero return there can mean
+  # "module not registered" — which we don't want to misread as
+  # "DKMS is broken, give up". We parse the cached global output for our
+  # module/version/kernel below instead of re-invoking the scoped form.
+  local dkms_status_rc=0
+  local dkms_status_out
+  dkms_status_out="$(dkms status 2>&1)" || dkms_status_rc=$?
+  if [ "$dkms_status_rc" -ne 0 ]; then
+    log_message "WARNING: dkms status exited $dkms_status_rc: $dkms_status_out"
+    log_message "Cannot determine DKMS state; skipping auto-rebuild (manual rebuild may be required)"
+    return 1
+  fi
+  if ! printf '%s\n' "$dkms_status_out" | grep -q "^$dkms_module/$dkms_version,"; then
+    log_message "DKMS module $dkms_module/$dkms_version not registered, skipping auto-rebuild check"
     return 0
   fi
 
-  # Check if module is already built+installed for the running kernel
-  if dkms status "$dkms_module/$dkms_version" -k "$running_kernel" 2>/dev/null | grep -q "installed"; then
+  # Check if module is already built+installed for the running kernel.
+  # Filter the cached global output for our module/version/kernel/status.
+  if printf '%s\n' "$dkms_status_out" | grep -q "^$dkms_module/$dkms_version, $running_kernel,.*installed"; then
     log_message "DKMS module $dkms_module/$dkms_version is installed for kernel $running_kernel"
     return 0
   fi
@@ -70,8 +93,9 @@ ensure_dkms_module() {
     return 1
   fi
 
-  # Check if module is already built (but not installed) - skip build, go straight to install
-  if dkms status "$dkms_module/$dkms_version" -k "$running_kernel" 2>/dev/null | grep -q "built"; then
+  # Check if module is already built (but not installed) — skip build, go
+  # straight to install. Same global-form filter as above.
+  if printf '%s\n' "$dkms_status_out" | grep -q "^$dkms_module/$dkms_version, $running_kernel,.* built"; then
     log_message "DKMS module already built for kernel $running_kernel, skipping to install..."
   else
     # Attempt build
@@ -104,20 +128,28 @@ ensure_dkms_module() {
 
 ensure_dkms_module || log_message "WARNING: DKMS auto-rebuild failed - audio may not work (see errors above)"
 
-# Verify I2C is enabled (should be done via config.txt by install script)
-log_message "Verifying I2C interface is available..."
-if ! i2cdetect -y 1 >/dev/null 2>&1; then
-  log_error_exit "I2C bus not available. Please add 'dtparam=i2c_arm=on' to config.txt [all] section (usually /boot/firmware/config.txt or /boot/config.txt) and reboot." 2
-fi
-log_message "I2C interface verified"
-
-# Load kernel modules
+# Load i2c-dev FIRST so /dev/i2c-1 exists before we probe. Probing
+# i2cdetect before this point can fail with a misleading "I2C disabled"
+# error on systems where i2c-dev isn't auto-loaded — even though the
+# real fix is just to load the module.
 log_message "Loading i2c-dev kernel module..."
 if ! modprobe i2c-dev; then
   log_error_exit "Failed to load i2c-dev kernel module" 2
 fi
 log_message "i2c-dev module loaded successfully"
 sleep 5
+
+# Verify the I2C controller itself is enabled in config.txt. /dev/i2c-1
+# only exists if BOTH i2c-dev is loaded (above) AND dtparam=i2c_arm=on
+# is present, so distinguish the two cases for an accurate error.
+log_message "Verifying I2C interface is available..."
+if [ ! -e /dev/i2c-1 ]; then
+  log_error_exit "I2C controller not enabled. Please add 'dtparam=i2c_arm=on' to config.txt [all] section (usually /boot/firmware/config.txt or /boot/config.txt) and reboot." 2
+fi
+if ! i2cdetect -y 1 >/dev/null 2>&1; then
+  log_error_exit "I2C bus probe failed even though /dev/i2c-1 exists. Check kernel logs for I2C controller errors." 2
+fi
+log_message "I2C interface verified"
 
 # Detect WM8960 codec on I2C bus 1, address 0x1a
 log_message "Detecting WM8960 codec on I2C bus 1 at address 0x1a..."
@@ -153,8 +185,17 @@ if [ "x${is_1a}" != "x" ]; then
   fi
   sleep 1
   
-  # Safer ALSA config management - backup before removing
+  # Safer ALSA config management — verify replacements exist BEFORE we
+  # touch the live config, so a missing/corrupt /etc/wm8960-soundcard/
+  # can't leave the box without any ALSA config until manual recovery.
   log_message "Managing ALSA configuration files..."
+  if [ ! -f /etc/wm8960-soundcard/asound.conf ]; then
+    log_error_exit "Source file /etc/wm8960-soundcard/asound.conf not found -- refusing to touch live ALSA config" 4
+  fi
+  if [ ! -f /etc/wm8960-soundcard/wm8960_asound.state ]; then
+    log_error_exit "Source file /etc/wm8960-soundcard/wm8960_asound.state not found -- refusing to touch live ALSA config" 4
+  fi
+
   if [ -f /etc/asound.conf ] && [ ! -L /etc/asound.conf ]; then
     log_message "Backing up existing /etc/asound.conf"
     if ! cp /etc/asound.conf "/etc/asound.conf.backup.$(date +%Y%m%d_%H%M%S)"; then
@@ -167,22 +208,14 @@ if [ "x${is_1a}" != "x" ]; then
       log_message "WARNING: Failed to create backup of /var/lib/alsa/asound.state (continuing anyway)"
     fi
   fi
-  
+
   # Remove old ALSA config files (use -f to avoid errors if files don't exist)
   rm -f /etc/asound.conf
   rm -f /var/lib/alsa/asound.state
   log_message "Removed old ALSA configuration files"
-  
+
   # Create symlinks to new config files (use -sf to safely overwrite)
   log_message "Creating wm8960-soundcard configuration symlinks..."
-  
-  # Verify target files exist before creating symlinks
-  if [ ! -f /etc/wm8960-soundcard/asound.conf ]; then
-    log_error_exit "Source file /etc/wm8960-soundcard/asound.conf not found" 4
-  fi
-  if [ ! -f /etc/wm8960-soundcard/wm8960_asound.state ]; then
-    log_error_exit "Source file /etc/wm8960-soundcard/wm8960_asound.state not found" 4
-  fi
   
   # Create symlinks with force flag to safely overwrite existing ones
   if ! ln -sf /etc/wm8960-soundcard/asound.conf /etc/asound.conf; then
@@ -219,6 +252,7 @@ if [ "x${is_1a}" != "x" ]; then
     count=${count:-0}
     if [ "$count" -gt "$keep" ]; then
       find "$dir" -name "$pattern" -type f 2>/dev/null | while IFS= read -r file; do
+        local mtime
         mtime=$(stat -c '%Y' "$file" 2>/dev/null || stat -f '%m' "$file" 2>/dev/null)
         echo "$mtime|$file"
       done | sort -t'|' -k1,1n | cut -d'|' -f2- | head -n $((count - keep)) | while IFS= read -r file; do
@@ -236,24 +270,24 @@ if [ "x${is_1a}" != "x" ]; then
   log_message "Performing health checks..."
   
   # Check 1: Verify WM8960 kernel modules are loaded
-  if lsmod | grep -q "snd_soc_wm8960"; then
-    log_message "✓ Health check passed: WM8960 kernel module loaded"
+  if lsmod | grep -q "^snd_soc_wm8960 "; then
+    log_message "[PASS] Health check: WM8960 kernel module loaded"
   else
-    log_message "⚠ WARNING: WM8960 kernel module not detected in lsmod"
+    log_message "[WARN] WARNING: WM8960 kernel module not detected in lsmod"
   fi
   
   # Check 2: Verify ALSA can see the sound card
   if grep -q "wm8960" /proc/asound/cards 2>/dev/null; then
-    log_message "✓ Health check passed: WM8960 sound card visible to ALSA"
+    log_message "[PASS] Health check: WM8960 sound card visible to ALSA"
   else
-    log_message "⚠ WARNING: WM8960 sound card not visible in /proc/asound/cards"
+    log_message "[WARN] WARNING: WM8960 sound card not visible in /proc/asound/cards"
   fi
   
   # Check 3: Verify playback devices are available
   if aplay -l 2>/dev/null | grep -q "wm8960"; then
-    log_message "✓ Health check passed: WM8960 playback devices available"
+    log_message "[PASS] Health check: WM8960 playback devices available"
   else
-    log_message "⚠ WARNING: WM8960 playback devices not found"
+    log_message "[WARN] WARNING: WM8960 playback devices not found"
   fi
   
   # Log kernel module version information if debug mode is enabled
