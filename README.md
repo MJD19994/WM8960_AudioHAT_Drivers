@@ -62,9 +62,10 @@ These combinations are verified to work on real hardware:
 | Pi Model | OS | Kernel | Status |
 |----------|-----|--------|--------|
 | Raspberry Pi Zero 2W | Raspberry Pi OS Lite Trixie (64-bit) | 6.12.75+rpt-rpi-v8 | Primary test platform |
+| Raspberry Pi Zero 2W | Raspberry Pi OS Lite Trixie (64-bit) | 6.18.34+rpt-rpi-v8 | Verified (v1.3.1 ASoC API compat shims) |
 | Other 40-pin Pi models | Raspberry Pi OS Trixie or newer | 6.6+ | Should work (same kernel APIs) — please report results |
 
-The driver uses DKMS with kernel compatibility wrappers for 6.13+, and the boot-time auto-rebuild handles cross-kernel scenarios automatically.
+The driver uses DKMS with kernel compatibility wrappers for 6.13+ and 6.18+, and the boot-time auto-rebuild handles cross-kernel scenarios automatically.
 
 ## Quick Install
 
