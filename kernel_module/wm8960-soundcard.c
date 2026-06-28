@@ -39,11 +39,21 @@ struct wm8960_simple_card_info {
     struct simple_util_dai codec_dai;
 };
 
-/* Define dai_link_set_capabilities if not available in the kernel */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 13, 0)
+/*
+ * Provide a no-op shim for snd_soc_dai_link_set_capabilities() when the kernel
+ * doesn't declare it:
+ *   - <  6.13: function didn't exist yet
+ *   - >= 6.18: function removed; the ASoC core auto-derives DAI link
+ *              capabilities now, so callers are expected to drop it
+ * In both cases an empty inline lets our existing call site compile and
+ * become a no-op without further surgery.
+ */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 13, 0) || \
+    LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
 static inline void snd_soc_dai_link_set_capabilities(struct snd_soc_dai_link *link)
 {
-    /* Empty implementation for older kernels */
+    /* Intentionally empty: older kernels lacked it, newer ones handle it
+     * in the ASoC core. */
 }
 #endif
 
@@ -218,7 +228,17 @@ static int simple_link_init(struct simple_util_priv *priv,
 	dai_link->init			= simple_util_dai_init;
 	dai_link->ops			= &simple_ops;
 
+	/*
+	 * simple_util_set_dailink_name() switched its first argument from
+	 * struct device * to struct simple_util_priv * in Linux 6.18 (RPi
+	 * kernel 6.18.34 ships the new signature). Pass priv on 6.18+, dev
+	 * on older kernels — both are in scope above.
+	 */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+	return simple_util_set_dailink_name(priv, dai_link, name);
+#else
 	return simple_util_set_dailink_name(dev, dai_link, name);
+#endif
 }
 
 static int simple_dai_link_of_dpcm(struct simple_util_priv *priv,
@@ -519,7 +539,16 @@ static int simple_parse_of(struct simple_util_priv *priv, struct link_info *li)
 	if (ret < 0)
 		return ret;
 
+	/*
+	 * simple_util_parse_card_name() switched its first argument from
+	 * struct snd_soc_card * to struct simple_util_priv * in Linux 6.18.
+	 * Pass priv on 6.18+, card on older kernels.
+	 */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+	ret = simple_util_parse_card_name(priv, PREFIX);
+#else
 	ret = simple_util_parse_card_name(card, PREFIX);
+#endif
 	if (ret < 0)
 		return ret;
 

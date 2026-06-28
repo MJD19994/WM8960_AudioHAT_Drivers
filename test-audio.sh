@@ -192,16 +192,31 @@ elif ! [ -t 0 ]; then
     interactive=false
 fi
 
+# The optional echo-cancel service (tools/echo-cancel/) holds the WM8960
+# device exclusively when active, which makes the direct hw:wm8960soundcard
+# probe in checks 9/10 fail with EBUSY. Detect that case and skip with a
+# clear instruction rather than letting the underlying test fail silently.
+ec_holding_device=false
+if systemctl is-active --quiet wm8960-echo-cancel.service 2>/dev/null; then
+    ec_holding_device=true
+fi
+
 # ---------- Check 9: Speaker Test ----------
 echo "Check 9/10: Speaker playback test..."
 if ! $interactive; then
     skip "Speaker test (use interactive mode to test)"
+elif $ec_holding_device; then
+    skip "Speaker test -- wm8960-echo-cancel.service is active and holds the WM8960 speaker exclusively."
+    echo "        To test direct audio: 'sudo systemctl stop wm8960-echo-cancel.service' first,"
+    echo "        rerun this script, then 'sudo systemctl start wm8960-echo-cancel.service' after."
+    echo "        To test the EC loopback path instead, see tools/echo-cancel/README.md."
 else
     echo "  Playing test tone through speakers for 4 seconds..."
     echo "  (If you don't hear anything, check speaker connections and volume)"
     echo ""
-    # Use timeout to limit speaker-test duration, suppress its verbose output
-    timeout 4 speaker-test -D hw:wm8960soundcard -c 2 -t wav -l 1 >/dev/null 2>&1
+    # Errors are NOT suppressed -- if the device is busy or misconfigured
+    # we want the user to see why, not just hear silence and answer "no".
+    timeout 4 speaker-test -D hw:wm8960soundcard -c 2 -t wav -l 1 >/dev/null
     echo ""
     read -r -p "  Did you hear the test sound? (y/n): " response
     if [[ "$response" =~ ^[Yy]$ ]]; then
@@ -215,6 +230,8 @@ fi
 echo "Check 10/10: Microphone capture test..."
 if ! $interactive; then
     skip "Microphone test (use interactive mode to test)"
+elif $ec_holding_device; then
+    skip "Microphone test -- wm8960-echo-cancel.service is active and holds the WM8960 capture exclusively. See check 9 notes."
 else
     echo "  Recording 3 seconds from microphone..."
     echo "  Speak into the microphone now!"

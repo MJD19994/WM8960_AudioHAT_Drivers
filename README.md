@@ -4,7 +4,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/MJD19994/WM8960_AudioHAT_Drivers)](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/releases)
 [![CI](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/actions/workflows/ci.yml/badge.svg)](https://github.com/MJD19994/WM8960_AudioHAT_Drivers/actions/workflows/ci.yml)
 ![Raspberry Pi OS](https://img.shields.io/badge/Raspberry%20Pi%20OS-Trixie-success?style=flat-square)
-![Kernel 6.12](https://img.shields.io/badge/kernel-6.12%20validated-2ea44f?style=flat-square)
+![Kernel 6.12 & 6.18](https://img.shields.io/badge/kernel-6.12%20%26%206.18%20validated-2ea44f?style=flat-square)
 ![DKMS](https://img.shields.io/badge/DKMS-supported-yellow?style=flat-square)
 ![ALSA](https://img.shields.io/badge/ALSA-integrated-blue?style=flat-square)
 ![PulseAudio](https://img.shields.io/badge/PulseAudio-supported-blue?style=flat-square)
@@ -62,9 +62,10 @@ These combinations are verified to work on real hardware:
 | Pi Model | OS | Kernel | Status |
 |----------|-----|--------|--------|
 | Raspberry Pi Zero 2W | Raspberry Pi OS Lite Trixie (64-bit) | 6.12.75+rpt-rpi-v8 | Primary test platform |
+| Raspberry Pi Zero 2W | Raspberry Pi OS Lite Trixie (64-bit) | 6.18.34+rpt-rpi-v8 | Verified (v1.3.1 ASoC API compat shims) |
 | Other 40-pin Pi models | Raspberry Pi OS Trixie or newer | 6.6+ | Should work (same kernel APIs) — please report results |
 
-The driver uses DKMS with kernel compatibility wrappers for 6.13+, and the boot-time auto-rebuild handles cross-kernel scenarios automatically.
+The driver uses DKMS with kernel compatibility wrappers for 6.13+ and 6.18+, and the boot-time auto-rebuild handles cross-kernel scenarios automatically.
 
 ## Quick Install
 
@@ -81,7 +82,7 @@ sudo bash install.sh
 sudo reboot
 ```
 
-The installer performs 13 steps and is idempotent (safe to re-run). It runs a pre-flight check that warns you if a kernel update is pending reboot, and the service will auto-rebuild the DKMS module at boot if the kernel changes later. For detailed steps, options (`--skip-pipewire`, `--skip-pulseaudio`, `--yes`), and manual verification, see **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
+The installer performs 14 steps and is idempotent (safe to re-run). It runs a pre-flight check that warns you if a kernel update is pending reboot, and the service will auto-rebuild the DKMS module at boot if the kernel changes later. For detailed steps, options (`--skip-pipewire`, `--skip-pulseaudio`, `--yes`), and manual verification, see **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
 
 ## Quick Verification
 
