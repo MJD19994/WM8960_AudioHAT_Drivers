@@ -221,12 +221,18 @@ show_levels() {
     amixer -c "$CARD" sget 'Playback' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
     echo "Speaker:"
     amixer -c "$CARD" sget 'Speaker' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    echo "Speaker Class-D Boost (0-5, must be >0 for audible speaker output):"
+    amixer -c "$CARD" sget 'Speaker DC' 2>/dev/null | grep "Mono:" | sed 's/^/  DC /' || true
+    amixer -c "$CARD" sget 'Speaker AC' 2>/dev/null | grep "Mono:" | sed 's/^/  AC /' || true
     echo "Headphone:"
     amixer -c "$CARD" sget 'Headphone' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
     echo ""
     echo "=== Input ==="
-    echo "Capture:"
+    echo "Capture (ADC gain):"
     amixer -c "$CARD" sget 'Capture' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
+    echo "Input Boost (PGA, wired-in mic path is LINPUT1/RINPUT1):"
+    amixer -c "$CARD" sget 'Left Input Boost Mixer LINPUT1' 2>/dev/null | grep "Mono:" | sed 's/^/  LINPUT1 /' || true
+    amixer -c "$CARD" sget 'Right Input Boost Mixer RINPUT1' 2>/dev/null | grep "Mono:" | sed 's/^/  RINPUT1 /' || true
     echo ""
     echo "=== Processing ==="
     echo "ALC Function:"
