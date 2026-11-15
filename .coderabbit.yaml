@@ -30,7 +30,7 @@ reviews:
         properties or runtime-configurable. Review for kernel coding style,
         memory safety, refcount correctness (especially of_node_put paths),
         error handling, and ALSA/ASoC API correctness across kernel versions
-        6.6 through 6.18+.
+        6.7 through 6.18+.
     - path: "tools/echo-cancel/src/*.{c,cpp,h}"
       instructions: >
         User-space real-time audio code (NOT a kernel module). Two engines:

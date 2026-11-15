@@ -221,7 +221,7 @@ show_levels() {
     amixer -c "$CARD" sget 'Playback' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
     echo "Speaker:"
     amixer -c "$CARD" sget 'Speaker' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
-    echo "Speaker Class-D Boost (0-5, must be >0 for audible speaker output):"
+    echo "Speaker Class-D Boost (0-5; 0 = 0 dB unity, 5 = +5.1 dB):"
     amixer -c "$CARD" sget 'Speaker DC' 2>/dev/null | grep "Mono:" | sed 's/^/  DC /' || true
     amixer -c "$CARD" sget 'Speaker AC' 2>/dev/null | grep "Mono:" | sed 's/^/  AC /' || true
     echo "Headphone:"

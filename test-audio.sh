@@ -197,14 +197,27 @@ fi
 # probe in checks 9/10 fail with EBUSY. Detect that case and skip with a
 # clear instruction rather than letting the underlying test fail silently.
 ec_holding_device=false
-if systemctl is-active --quiet wm8960-echo-cancel.service 2>/dev/null; then
-    ec_holding_device=true
-fi
+ec_state_unknown=false
+ec_state="$(systemctl is-active wm8960-echo-cancel.service 2>/dev/null || true)"
+case "$ec_state" in
+    active|activating|reloading|refreshing)
+        ec_holding_device=true ;;
+    inactive|failed|deactivating)
+        ;;
+    *)
+        # systemctl itself failed (D-Bus or systemd unreachable), so we can't
+        # prove the device is free. Don't run the direct hw: tests blind.
+        ec_state_unknown=true ;;
+esac
 
 # ---------- Check 9: Speaker Test ----------
 echo "Check 9/10: Speaker playback test..."
 if ! $interactive; then
     skip "Speaker test (use interactive mode to test)"
+elif $ec_state_unknown; then
+    skip "Speaker test -- could not determine wm8960-echo-cancel.service state (systemctl returned '${ec_state:-no output}')."
+    echo "        The direct hw:wm8960soundcard test is skipped so it can't collide with a running EC service."
+    echo "        Check 'systemctl status wm8960-echo-cancel.service' and rerun."
 elif $ec_holding_device; then
     skip "Speaker test -- wm8960-echo-cancel.service is active and holds the WM8960 speaker exclusively."
     echo "        To test direct audio: 'sudo systemctl stop wm8960-echo-cancel.service' first,"
@@ -230,6 +243,8 @@ fi
 echo "Check 10/10: Microphone capture test..."
 if ! $interactive; then
     skip "Microphone test (use interactive mode to test)"
+elif $ec_state_unknown; then
+    skip "Microphone test -- could not determine wm8960-echo-cancel.service state. See check 9 notes."
 elif $ec_holding_device; then
     skip "Microphone test -- wm8960-echo-cancel.service is active and holds the WM8960 capture exclusively. See check 9 notes."
 else
