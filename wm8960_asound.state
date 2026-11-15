@@ -91,7 +91,7 @@ state.wm8960soundcard {
 	control.8 {
 		iface MIXER
 		name 'Right Input Boost Mixer RINPUT1 Volume'
-		value 0
+		value 2
 		comment {
 			access 'read write'
 			type INTEGER
@@ -104,7 +104,7 @@ state.wm8960soundcard {
 	control.9 {
 		iface MIXER
 		name 'Left Input Boost Mixer LINPUT1 Volume'
-		value 0
+		value 2
 		comment {
 			access 'read write'
 			type INTEGER
@@ -181,7 +181,7 @@ state.wm8960soundcard {
 	control.15 {
 		iface MIXER
 		name 'Speaker DC Volume'
-		value 0
+		value 3
 		comment {
 			access 'read write'
 			type INTEGER
@@ -192,7 +192,7 @@ state.wm8960soundcard {
 	control.16 {
 		iface MIXER
 		name 'Speaker AC Volume'
-		value 0
+		value 3
 		comment {
 			access 'read write'
 			type INTEGER
