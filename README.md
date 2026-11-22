@@ -66,7 +66,7 @@ These combinations are verified to work on real hardware:
 | Raspberry Pi Zero 2W | Raspberry Pi OS Lite Trixie (64-bit) | 6.18.60+rpt-rpi-v8 | Verified via `apt full-upgrade` from 6.18.34 — DKMS autoinstall during kernel postinst, no boot-time rebuild needed |
 | Other 40-pin Pi models | Raspberry Pi OS Trixie or newer | 6.7+ | Should work (same kernel APIs) — please report results |
 
-The driver uses DKMS with kernel compatibility wrappers for the ASoC API changes in 6.12, 6.15 and 6.18, and the boot-time auto-rebuild handles cross-kernel scenarios automatically. Kernels older than 6.7 are not supported: the `simple_util_*` helpers the driver is built on were named `asoc_simple_*` before then.
+The driver uses DKMS with kernel compatibility wrappers for the ASoC/platform API changes in 6.7, 6.11, 6.12, 6.15 and 6.18, and the boot-time auto-rebuild handles cross-kernel scenarios automatically. The source is compile-checked against 6.8, 6.11, 6.14 and 6.17 (Ubuntu arm64 headers) in addition to the Raspberry Pi kernels above. Kernels older than 6.7 are not supported: the `simple_util_*` helpers the driver is built on were named `asoc_simple_*` before then.
 
 ## Quick Install
 

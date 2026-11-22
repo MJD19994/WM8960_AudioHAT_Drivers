@@ -2,8 +2,8 @@ state.wm8960soundcard {
 	control.1 {
 		iface MIXER
 		name 'Capture Volume'
-		value.0 63
-		value.1 63
+		value.0 50
+		value.1 50
 		comment {
 			access 'read write'
 			type INTEGER

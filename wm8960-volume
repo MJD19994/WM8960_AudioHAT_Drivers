@@ -228,9 +228,9 @@ show_levels() {
     amixer -c "$CARD" sget 'Headphone' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
     echo ""
     echo "=== Input ==="
-    echo "Capture (ADC gain):"
+    echo "Capture (input PGA gain, -17.25 to +30 dB):"
     amixer -c "$CARD" sget 'Capture' 2>/dev/null | grep -E "Mono:|Left:|Right:" || true
-    echo "Input Boost (PGA, wired-in mic path is LINPUT1/RINPUT1):"
+    echo "Input Boost Mixer (LINPUT1/RINPUT1, boost stage after the PGA):"
     amixer -c "$CARD" sget 'Left Input Boost Mixer LINPUT1' 2>/dev/null | grep "Mono:" | sed 's/^/  LINPUT1 /' || true
     amixer -c "$CARD" sget 'Right Input Boost Mixer RINPUT1' 2>/dev/null | grep "Mono:" | sed 's/^/  RINPUT1 /' || true
     echo ""

@@ -60,8 +60,12 @@ rm -f /etc/systemd/system/wm8960-alsa-store.timer
 rm -f /usr/bin/wm8960-alsa-store
 rm -f /usr/bin/wm8960-volume
 rm -f /usr/bin/wm8960-diag
+# Only remove the i2c-dev autoload drop-in if it carries our tag.
+if grep -q "wm8960-managed" /etc/modules-load.d/wm8960-i2c-dev.conf 2>/dev/null; then
+    rm -f /etc/modules-load.d/wm8960-i2c-dev.conf
+fi
 systemctl daemon-reload
-echo "Service files and utilities removed"
+echo "Service files, utilities and i2c-dev autoload drop-in removed"
 
 echo ""
 echo "Step 4/11: Removing ALSA WM8960 links and restoring previous config if available..."
@@ -182,9 +186,27 @@ fi
 
 echo ""
 echo "Step 10/11: Removing device tree overlay..."
-rm -f /boot/overlays/wm8960-soundcard.dtbo
-rm -f /boot/firmware/overlays/wm8960-soundcard.dtbo
-echo "Device tree overlay removed (if present)"
+# /boot/overlays is a symlink to /boot/firmware/overlays on current Pi OS, so
+# resolve and de-duplicate: otherwise the second pass would delete the stock
+# overlay the first pass just restored.
+overlay_restored=0
+handled_overlay_dirs=""
+for ovl_dir in /boot/firmware/overlays /boot/overlays; do
+    [ -d "$ovl_dir" ] || continue
+    real_dir=$(readlink -f "$ovl_dir")
+    case " $handled_overlay_dirs " in *" $real_dir "*) continue ;; esac
+    handled_overlay_dirs="$handled_overlay_dirs $real_dir"
+    rm -f "$real_dir/wm8960-soundcard.dtbo"
+    if [ -f "$real_dir/wm8960-soundcard.dtbo.wm8960-stock" ]; then
+        mv "$real_dir/wm8960-soundcard.dtbo.wm8960-stock" "$real_dir/wm8960-soundcard.dtbo"
+        overlay_restored=1
+    fi
+done
+if [ "$overlay_restored" -eq 1 ]; then
+    echo "Restored the stock wm8960-soundcard.dtbo that was present before install"
+else
+    echo "Device tree overlay removed (if present)"
+fi
 
 echo ""
 echo "Step 11/11: Cleaning up config.txt..."
@@ -257,7 +279,7 @@ echo "  - Lines tagged with '# wm8960-managed' in config.txt"
 echo "  - WM8960-related overlay and comment lines"
 echo ""
 echo "The following items were NOT removed (manual cleanup if desired):"
-echo "  - i2c-dev in /etc/modules"
+echo "  - i2c-dev in /etc/modules (only if added by an install older than 1.3.1)"
 echo "  - Installed packages (dkms, i2c-tools)"
 echo "  - alsa-utils and libasound2-plugins are SHARED with most audio stacks"
 echo "    (PulseAudio, PipeWire, Bluetooth audio) -- leave installed unless you're sure"

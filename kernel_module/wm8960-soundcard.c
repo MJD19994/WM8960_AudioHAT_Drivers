@@ -797,7 +797,18 @@ static struct platform_driver asoc_wm8960_soundcard = {
 		.of_match_table = simple_of_match,
 	},
 	.probe = simple_probe,
+	/*
+	 * simple_util_remove() returns void since 6.7, but platform_driver.remove
+	 * stayed int until 6.11; the void-returning slot in between was
+	 * .remove_new (dropped again after .remove itself became void). Mirrors
+	 * what mainline simple-card did on each range.
+	 */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0) && \
+    LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
+	.remove_new = simple_util_remove,
+#else
 	.remove = simple_util_remove,
+#endif
 };
 
 module_platform_driver(asoc_wm8960_soundcard);
