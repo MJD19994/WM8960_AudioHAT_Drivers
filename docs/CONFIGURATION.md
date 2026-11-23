@@ -25,9 +25,6 @@ Your config.txt must have the following in the `[all]` section. The installer ad
 ```text
 # Required: Enable I2C interface for codec communication
 dtparam=i2c_arm=on # wm8960-managed
-
-# Enable I2S memory-mapped interface
-dtoverlay=i2s-mmap # wm8960-managed
 ```
 
 **Important notes:**
@@ -35,28 +32,7 @@ dtoverlay=i2s-mmap # wm8960-managed
 - It must be in the `[all]` section to work on all Raspberry Pi models
 - The installer tags lines it adds with `# wm8960-managed` so the uninstaller can safely remove them
 - Multiple `dtparam` calls accumulate in the device tree overlay list, wasting memory and potentially causing driver failures
-
-### Known Conflicts
-
-**⚠️ `dtoverlay=i2s-mmap` Conflict:**
-
-The install script adds `dtoverlay=i2s-mmap`, which is required for the I2S memory-mapped interface. However, if you have a custom audio setup it may conflict.
-
-**Symptoms of conflict:**
-- Silent failures during audio playback
-- Unexpected audio routing behavior
-- Service initialization failures related to I2S
-
-**To resolve:**
-
-```bash
-# Pick the active config.txt path (Pi OS Trixie+ uses /boot/firmware/,
-# older releases use /boot/)
-[ -f /boot/firmware/config.txt ] && CONFIG=/boot/firmware/config.txt || CONFIG=/boot/config.txt
-sudo nano "$CONFIG"
-# Comment out: # dtoverlay=i2s-mmap  # Disabled due to conflict
-sudo reboot
-```
+- No I2S line is needed: the `wm8960-soundcard` overlay enables the I2S controller itself. Installs up to v1.3.1 also added `dtoverlay=i2s-mmap # wm8960-managed`; the firmware never loaded it (it does not treat an inline `#` as a comment) and the overlay no longer ships with current kernels, so v1.4+ installs remove that line
 
 ### Example config.txt [all] Section
 
@@ -64,10 +40,6 @@ sudo reboot
 [all]
 # Enable I2C for WM8960 codec
 dtparam=i2c_arm=on # wm8960-managed
-
-# Enable I2S memory-mapped interface
-dtoverlay=i2s-mmap # wm8960-managed
-
 # Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection # wm8960-managed
 # Do NOT add: dtoverlay=wm8960-soundcard
 ```

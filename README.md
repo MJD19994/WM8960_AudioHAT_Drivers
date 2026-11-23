@@ -36,11 +36,11 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 
 ## Overview
 
-This project provides a patched DKMS kernel module, systemd service, ALSA configuration, and optional WebRTC echo cancellation for WM8960-based Raspberry Pi Audio HATs that lack an external MCLK — where the mainline Linux `snd_soc_wm8960` driver fails with "No MCLK configured". Auto-detects and configures PipeWire, PulseAudio, or ALSA-only setups at install time.
+This project provides a patched DKMS kernel module, systemd service, ALSA configuration, and optional WebRTC echo cancellation for WM8960-based Raspberry Pi Audio HATs. These HATs have no MCLK from the Pi — the codec is clocked from its own 24 MHz crystal — and the stock `snd_soc_wm8960` driver only clocks them correctly when the device tree declares that crystal and the driver is left to pick a PLL configuration itself; with any other overlay it fails with "No MCLK configured". This package instead ships a codec driver that always runs the PLL from the 24 MHz crystal, so it works with the bundled overlay on every supported HAT, plus the service, mixer defaults, and tooling around it. Auto-detects and configures PipeWire, PulseAudio, or ALSA-only setups at install time.
 
 ### Key Features
 
-- **Patched DKMS kernel module** — forces PLL mode using the HAT's onboard 24 MHz crystal so Pi HATs work without an external MCLK (mainline `snd_soc_wm8960` fails here)
+- **Patched DKMS kernel module** — forces PLL mode using the HAT's onboard 24 MHz crystal so Pi HATs work without an external MCLK, and keeps mic bias on whenever the input boost mixers are in use
 - **Dynamic overlay loading** via systemd service with 5-retry I2C detection — no `config.txt` overlay races or boot failures
 - **Boot-time DKMS auto-rebuild** — transparently handles Pi OS kernel-update edge cases
 - **PipeWire, PulseAudio, and ALSA** auto-detected and configured on install

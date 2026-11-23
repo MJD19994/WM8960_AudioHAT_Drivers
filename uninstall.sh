@@ -223,9 +223,10 @@ if [ -f "$CONFIG_FILE" ]; then
     # Allow leading whitespace — some users indent lines inside [section] blocks.
     sed -i '/^[[:space:]]*dtoverlay=wm8960-soundcard/d' "$CONFIG_FILE"
     # Remove installer-managed lines (tagged with # wm8960-managed).
-    # This includes dtparam=i2c_arm=on, dtoverlay=i2s-mmap, and our informational
-    # comment — all tagged so we only remove what we added. User-authored comments
-    # mentioning wm8960-soundcard are preserved.
+    # This includes dtparam=i2c_arm=on, our informational comment, and the
+    # dtoverlay=i2s-mmap line that installs up to 1.3.1 added — all tagged so we
+    # only remove what we added. User-authored comments mentioning
+    # wm8960-soundcard are preserved.
     sed -i '/# wm8960-managed/d' "$CONFIG_FILE"
 
     echo "Config.txt cleaned (backup created)"
@@ -286,7 +287,8 @@ echo "    (PulseAudio, PipeWire, Bluetooth audio) -- leave installed unless you'
 echo "  - Kernel headers"
 echo ""
 echo "To remove these manually:"
-echo "  1. Edit /etc/modules and remove i2c-dev if not needed"
+echo "  1. Edit /etc/modules and remove i2c-dev if not needed (installs older"
+echo "     than 1.3.1 only; newer installs use a drop-in that was removed above)"
 echo "  2. apt-get remove dkms i2c-tools   # ONLY if no DKMS-managed modules"
 echo "                                       remain (this repo's optional EC"
 echo "                                       installer also uses DKMS for"

@@ -217,34 +217,6 @@ else
     echo "dtparam=i2c_arm=on already present in config.txt [all] section"
 fi
 
-# Check for dtoverlay=i2s-mmap conflict and warn user
-# This warns if user already has i2s-mmap from a previous install or custom setup
-# The script will add i2s-mmap later if not present, but warns if it already exists
-# in case the user is experiencing conflicts and needs to know about it
-if grep -E "^[^#]*dtoverlay=i2s-mmap" "$CONFIG_FILE" | grep -qv "wm8960-managed"; then
-    echo ""
-    echo "=========================================="
-    echo "WARNING: I2S-MMAP Overlay Already Present"
-    echo "=========================================="
-    echo "Your config.txt already contains 'dtoverlay=i2s-mmap'."
-    echo ""
-    echo "This is usually correct, but if you experience audio issues after"
-    echo "installation (silent failures, unexpected behavior), this overlay"
-    echo "may conflict with WM8960. You can comment it out:"
-    echo "  # dtoverlay=i2s-mmap  # Commented out due to WM8960 conflict"
-    echo ""
-    echo "See README.md 'Required config.txt Settings' section for more details."
-    echo "=========================================="
-    echo ""
-    if [ "$AUTO_YES" -eq 1 ]; then
-        echo "Auto-confirmed (--yes): continuing past I2S-MMAP warning"
-    elif [ -t 0 ]; then
-        read -rp "Press Enter to continue with installation..."
-    else
-        echo "Non-interactive mode, continuing..."
-    fi
-fi
-
 echo ""
 echo "Step 5/14: Compiling and installing wm8960-soundcard kernel module via DKMS..."
 # Check if DKMS module is already installed. Separate the dkms exit code
@@ -386,71 +358,24 @@ if [ ! -f "$i2c_dev_dropin" ]; then
 fi
 
 echo ""
-echo "Step 8/14: Configuring I2S interface in $CONFIG_FILE..."
+echo "Step 8/14: Checking I2S configuration in $CONFIG_FILE..."
 # CONFIG_FILE already set in Step 3a
 
-# Enable I2S-MMAP (required for proper I2S memory-mapped interface)
-# Note: In rare cases, this may conflict with custom audio setups
-# If you experience audio issues after installation, try commenting out dtoverlay=i2s-mmap in config.txt
-
-# Comment out every active dtparam=i2s=on in [all]. We preserve each user
-# value in commented form WITHOUT a wm8960-managed tag, so the uninstall's
-# wm8960-managed removal sweep leaves the commented lines behind and the
-# user can restore them by removing the leading '# '. The loop catches
-# partially-edited configs with multiple active i2s=on entries, which would
-# otherwise leave later occurrences active and reintroduce the conflict.
-i2s_safety_count=0
-while in_all_section "^[[:space:]]*dtparam=i2s=on"; do
-    i2s_line=$(line_in_all_section "^[[:space:]]*dtparam=i2s=on")
-    if [ -z "$i2s_line" ]; then
-        break
-    fi
-    i2s_text=$(sed -n "${i2s_line}p" "$CONFIG_FILE")
-    # Escape sed-special characters (& and \) in the captured line before
-    # reinjecting it as the c\ replacement text, so a line containing them
-    # can't corrupt the rewrite. Realistically a dtparam line never holds
-    # these, but the line text is user-editable so we treat it as untrusted.
-    i2s_text_escaped=$(printf '%s\n' "$i2s_text" | sed 's/[&\]/\\&/g')
-    replacement="# ${i2s_text_escaped}  # Disabled by WM8960 installer; remove leading '# ' to restore"
-    if ! sed -i "${i2s_line}c\\${replacement}" "$CONFIG_FILE"; then
-        echo "ERROR: Failed to comment out dtparam=i2s=on in config.txt"
+# The wm8960-soundcard overlay enables the I2S controller itself, so no
+# config.txt change is needed for I2S. Installs up to 1.3.1 added
+# "dtoverlay=i2s-mmap # wm8960-managed" here. The firmware never loaded it
+# (it does not treat an inline '#' as a comment, so the overlay name became
+# "i2s-mmap # wm8960-managed"), and the i2s-mmap overlay no longer ships
+# with current Pi OS kernels anyway (mmap is native in bcm2835-i2s). Remove
+# our tagged copy on upgrade; user-authored i2s-mmap lines are left alone.
+if grep -qE "^[[:space:]]*dtoverlay=i2s-mmap[[:space:]]*# wm8960-managed" "$CONFIG_FILE"; then
+    if ! sed -i '/^[[:space:]]*dtoverlay=i2s-mmap[[:space:]]*# wm8960-managed/d' "$CONFIG_FILE"; then
+        echo "ERROR: Failed to remove legacy dtoverlay=i2s-mmap line from config.txt"
         exit 1
     fi
-    echo "Commented out dtparam=i2s=on (replaced by dtoverlay=i2s-mmap)"
-    # Belt-and-braces guard against an unexpected non-progressing loop.
-    i2s_safety_count=$((i2s_safety_count + 1))
-    if [ "$i2s_safety_count" -gt 20 ]; then
-        echo "ERROR: dtparam=i2s=on cleanup did not converge after 20 iterations"
-        exit 1
-    fi
-done
-
-# Add dtoverlay=i2s-mmap if not present in [all] section
-if ! in_all_section "^[^#]*dtoverlay=i2s-mmap"; then
-    # Try to add it to [all] section if it exists
-    if grep -qE "^[[:space:]]*\[all\]" "$CONFIG_FILE"; then
-        # Insert after dtparam=i2c_arm=on in [all] if it exists, otherwise after [all] header
-        if in_all_section "^[^#]*dtparam=i2c_arm=on"; then
-            target_line=$(line_in_all_section "^[^#]*dtparam=i2c_arm=on")
-        else
-            target_line=$(grep -nE "^[[:space:]]*\[all\]" "$CONFIG_FILE" | head -1 | cut -d: -f1)
-        fi
-        if ! sed -i "${target_line}a dtoverlay=i2s-mmap # wm8960-managed" "$CONFIG_FILE"; then
-            echo "ERROR: Failed to add dtoverlay=i2s-mmap to config.txt"
-            exit 1
-        fi
-        echo "Added dtoverlay=i2s-mmap to [all] section"
-    else
-        # No [all] section exists, should have been created earlier when adding dtparam=i2c_arm=on
-        echo "dtoverlay=i2s-mmap # wm8960-managed" >> "$CONFIG_FILE"
-        echo "Added dtoverlay=i2s-mmap to end of config.txt"
-    fi
-    echo "Enabled I2S-MMAP overlay in config.txt"
-    echo ""
-    echo "NOTE: If you experience audio issues (silent failures, unexpected behavior),"
-    echo "      you may need to comment out dtoverlay=i2s-mmap in config.txt."
-    echo "      See README.md 'Required config.txt Settings' section for details."
-    echo ""
+    echo "Removed legacy 'dtoverlay=i2s-mmap # wm8960-managed' line (never loaded; no longer needed)"
+else
+    echo "No I2S changes needed (the wm8960-soundcard overlay enables I2S itself)"
 fi
 
 # Add informational comment about dynamic loading benefits.

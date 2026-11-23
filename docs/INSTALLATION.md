@@ -59,21 +59,22 @@ cd WM8960_AudioHAT_Drivers
 sudo bash install.sh
 ```
 
-The installation script performs 13 steps:
+The installation script performs 14 steps:
 
 1. Update package lists
 2. Install kernel headers
-3. Install required packages (DKMS, i2c-tools, alsa-utils, ALSA plugins) and configure I2C in config.txt
-4. Compile and install the `wm8960-soundcard` kernel module via DKMS
-5. Copy the device tree overlay to `/boot/firmware/overlays/` (a pre-existing stock `wm8960-soundcard.dtbo` is kept as `wm8960-soundcard.dtbo.wm8960-stock` and restored on uninstall)
-6. Install the `i2c-dev` autoload drop-in (`/etc/modules-load.d/wm8960-i2c-dev.conf`, tagged `# wm8960-managed`)
-7. Enable I2S-MMAP overlay in config.txt
-8. Install ALSA configuration files, version info, and PipeWire/PulseAudio configs (if detected)
-9. Install systemd service script, volume utility, and diagnostic tool
-10. Install systemd service file and logrotate config
-11. Install ALSA auto-save components (disabled by default)
-12. Enable the systemd service
-13. Validate the installation (DKMS, overlay, service, ALSA, config.txt)
+3. Install required packages (DKMS, i2c-tools, alsa-utils, ALSA plugins)
+4. Configure I2C in config.txt (`dtparam=i2c_arm=on # wm8960-managed` in the `[all]` section)
+5. Compile and install the `wm8960-soundcard` kernel module via DKMS
+6. Copy the device tree overlay to `/boot/firmware/overlays/` (a pre-existing stock `wm8960-soundcard.dtbo` is kept as `wm8960-soundcard.dtbo.wm8960-stock` and restored on uninstall)
+7. Install the `i2c-dev` autoload drop-in (`/etc/modules-load.d/wm8960-i2c-dev.conf`, tagged `# wm8960-managed`)
+8. Check I2S configuration (removes the `dtoverlay=i2s-mmap # wm8960-managed` line that installs up to v1.3.1 added; the overlay enables I2S itself)
+9. Install ALSA configuration files, version info, and PipeWire/PulseAudio configs (if detected)
+10. Install systemd service script, volume utility, and diagnostic tool
+11. Install systemd service file and logrotate config
+12. Install ALSA auto-save components (disabled by default)
+13. Enable the systemd service
+14. Validate the installation (DKMS, overlay, service, ALSA, config.txt)
 
 A pre-flight check warns if a kernel update is pending reboot.
 
@@ -314,7 +315,8 @@ Some system-level settings are preserved because they may be used by other softw
 # Check if any wm8960-managed lines remain in config.txt
 grep 'wm8960-managed' "$CONFIG"
 
-# If present, remove them manually (dtparam=i2c_arm=on and dtoverlay=i2s-mmap)
+# If present, remove them manually (dtparam=i2c_arm=on, the informational
+# comment, and on installs up to v1.3.1 a dtoverlay=i2s-mmap line)
 sudo nano "$CONFIG"
 
 # Installs older than 1.3.1 added i2c-dev to /etc/modules (newer ones use a
