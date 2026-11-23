@@ -6,7 +6,7 @@ This document expands on the [License section in the README](../README.md#licens
 
 **MIT (default for this repo).** Everything outside `kernel_module/`, `tools/echo-cancel/`, and `dkms/snd-aloop/` is MIT-licensed. This includes all installer scripts, systemd services, ALSA/PulseAudio/PipeWire configs, device tree overlay sources, utility scripts, and documentation.
 
-**GPL-2.0-only (`kernel_module/`).** The DKMS kernel module is a patched version of the mainline Linux `wm8960.c` codec driver plus our added PLL and kernel compatibility fixes, and a small machine driver (`wm8960-soundcard.c`). Each source file carries an `SPDX-License-Identifier: GPL-2.0-only` header and the original Wolfson Microelectronics copyright notice alongside our modifications.
+**GPL-2.0-only (`kernel_module/`).** The DKMS kernel module is the Raspberry Pi Linux kernel's `wm8960.c` codec driver (tracked from the `rpi-6.18.y` branch) with three local patches — mic-bias routing and the forced 24 MHz PLL clocking, each marked `LOCAL PATCH` in the source — and a small machine driver (`wm8960-soundcard.c`) derived from the kernel's simple-card with kernel compatibility wrappers. Each source file carries an `SPDX-License-Identifier: GPL-2.0-only` header and the original Wolfson Microelectronics copyright notice alongside our modifications.
 
 **GPL-3.0-or-later (`tools/echo-cancel/`).** Both echo-cancellation engines in this directory are GPL-3.0-or-later:
 - `ec.c`, `audio.c`, `fifo.c`, `util.c` (SpeexDSP engine) — based on [voice-engine/ec](https://github.com/voice-engine/ec), which is GPL-3.0-or-later.
