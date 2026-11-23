@@ -25,6 +25,29 @@
 
 #include "wm8960.h"
 
+/*
+ * SND_SOC_DAIFMT_CB{M,S}_CF{M,S} were renamed in mainline ASoC to the new
+ * "clock provider/consumer" terminology years ago. The legacy aliases
+ * lingered in the RPi kernel tree until Linux 6.18, where the old macros
+ * were dropped. Define them in terms of the new names if absent so the
+ * switch statement in wm8960_set_dai_fmt() keeps compiling and matching
+ * the same bit values across kernels that have either spelling.
+ *
+ * Master/Slave -> Provider/Consumer mapping (per sound/soc-dai.h on 6.12):
+ *   CBM_CFM == CBP_CFP   (1 << 12) -- codec bit-clock and frame both provider
+ *   CBM_CFS == CBP_CFC   (3 << 12) -- codec bit-clock provider, frame consumer
+ *   CBS_CFM == CBC_CFP   (2 << 12) -- codec bit-clock consumer, frame provider
+ *   CBS_CFS == CBC_CFC   (4 << 12) -- codec bit-clock and frame both consumer
+ *
+ * Mnemonic: M (Master) -> P (Provider), S (Slave) -> C (Consumer).
+ */
+#ifndef SND_SOC_DAIFMT_CBM_CFM
+#define SND_SOC_DAIFMT_CBM_CFM SND_SOC_DAIFMT_CBP_CFP
+#endif
+#ifndef SND_SOC_DAIFMT_CBS_CFS
+#define SND_SOC_DAIFMT_CBS_CFS SND_SOC_DAIFMT_CBC_CFC
+#endif
+
 /* R25 - Power 1 */
 #define WM8960_VMID_MASK 0x180
 #define WM8960_VREF      0x40

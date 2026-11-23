@@ -65,8 +65,8 @@ The installation script performs 13 steps:
 2. Install kernel headers
 3. Install required packages (DKMS, i2c-tools, alsa-utils, ALSA plugins) and configure I2C in config.txt
 4. Compile and install the `wm8960-soundcard` kernel module via DKMS
-5. Copy the device tree overlay to `/boot/firmware/overlays/`
-6. Configure kernel modules in `/etc/modules` (add `i2c-dev`)
+5. Copy the device tree overlay to `/boot/firmware/overlays/` (a pre-existing stock `wm8960-soundcard.dtbo` is kept as `wm8960-soundcard.dtbo.wm8960-stock` and restored on uninstall)
+6. Install the `i2c-dev` autoload drop-in (`/etc/modules-load.d/wm8960-i2c-dev.conf`, tagged `# wm8960-managed`)
 7. Enable I2S-MMAP overlay in config.txt
 8. Install ALSA configuration files, version info, and PipeWire/PulseAudio configs (if detected)
 9. Install systemd service script, volume utility, and diagnostic tool
@@ -243,7 +243,7 @@ sudo cat /var/log/wm8960-soundcard.log
 **Example log entries:**
 
 ```text
-[2026-03-09 20:36:46] Starting WM8960 soundcard initialization (v1.3.0)...
+[2026-03-09 20:36:46] Starting WM8960 soundcard initialization (v1.3.1)...
 [2026-03-09 20:36:48] DKMS module wm8960-soundcard/1.0 is installed for kernel 6.12.75+rpt-rpi-v8
 [2026-03-09 20:36:48] Verifying I2C interface is available...
 [2026-03-09 20:36:48] I2C interface verified
@@ -317,7 +317,8 @@ grep 'wm8960-managed' "$CONFIG"
 # If present, remove them manually (dtparam=i2c_arm=on and dtoverlay=i2s-mmap)
 sudo nano "$CONFIG"
 
-# Remove i2c-dev from /etc/modules if not needed by other hardware
+# Installs older than 1.3.1 added i2c-dev to /etc/modules (newer ones use a
+# modules-load.d drop-in that uninstall removes). Remove it there if not needed:
 sudo nano /etc/modules
 
 # Optionally remove packages (only if not needed by other software)

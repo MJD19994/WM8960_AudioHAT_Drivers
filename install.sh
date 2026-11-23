@@ -350,6 +350,17 @@ fi
 # Create overlays directory if it doesn't exist
 mkdir -p "$BOOT_OVERLAYS"
 
+# Pi OS ships its own wm8960-soundcard.dtbo (for the in-tree driver). Keep a
+# copy of any pre-existing overlay that isn't ours so uninstall can put it
+# back. Taken once: a re-install finds our own file here and leaves the
+# stock backup alone.
+stock_overlay_backup="$BOOT_OVERLAYS/wm8960-soundcard.dtbo.wm8960-stock"
+if [ -f "$BOOT_OVERLAYS/wm8960-soundcard.dtbo" ] && [ ! -f "$stock_overlay_backup" ] && \
+   ! cmp -s "$SCRIPT_DIR/kernel_module/wm8960-soundcard.dtbo" "$BOOT_OVERLAYS/wm8960-soundcard.dtbo"; then
+    cp "$BOOT_OVERLAYS/wm8960-soundcard.dtbo" "$stock_overlay_backup"
+    echo "Backed up existing overlay to $stock_overlay_backup"
+fi
+
 # Copy the device tree overlay
 echo "Copying wm8960-soundcard.dtbo to $BOOT_OVERLAYS/..."
 cp "$SCRIPT_DIR/kernel_module/wm8960-soundcard.dtbo" "$BOOT_OVERLAYS/"
@@ -363,11 +374,15 @@ else
 fi
 
 echo ""
-echo "Step 7/14: Configuring kernel modules in /etc/modules..."
-# Add i2c-dev to /etc/modules if not present
-if ! grep -q "^i2c-dev" /etc/modules; then
-    echo "i2c-dev" >> /etc/modules
-    echo "Added i2c-dev to /etc/modules"
+echo "Step 7/14: Configuring i2c-dev module autoload..."
+# /etc/modules is marked obsolete on Trixie; use a tagged modules-load.d
+# drop-in so uninstall can remove exactly what we added. The boot service
+# also modprobes i2c-dev itself, so this only matters for tools run before
+# or without the service.
+i2c_dev_dropin=/etc/modules-load.d/wm8960-i2c-dev.conf
+if [ ! -f "$i2c_dev_dropin" ]; then
+    printf '# wm8960-managed\ni2c-dev\n' > "$i2c_dev_dropin"
+    echo "Installed $i2c_dev_dropin"
 fi
 
 echo ""
@@ -452,7 +467,8 @@ if grep "wm8960-soundcard overlay loaded dynamically" "$CONFIG_FILE" \
     sed -i '/wm8960-soundcard overlay loaded dynamically/{/wm8960-managed/!s/$/ # wm8960-managed/}' "$CONFIG_FILE"
     echo "Upgraded legacy untagged overlay note(s) to # wm8960-managed"
 elif ! grep -qF "wm8960-soundcard overlay loaded dynamically" "$CONFIG_FILE"; then
-    echo "" >> "$CONFIG_FILE"
+    # No blank-line separator: uninstall's tag sweep removes only tagged
+    # lines, so anything untagged we add here would be left behind.
     echo "# Note: wm8960-soundcard overlay loaded dynamically by service for proper I2C detection # wm8960-managed" >> "$CONFIG_FILE"
 fi
 

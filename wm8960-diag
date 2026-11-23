@@ -90,10 +90,27 @@ else
 fi
 
 section "Service Log (last 30 lines)"
-if [ -f /var/log/wm8960-soundcard.log ]; then
+if [ -s /var/log/wm8960-soundcard.log ]; then
     tail -30 /var/log/wm8960-soundcard.log
 else
-    echo "(log file not found)"
+    # The service only logs at boot and logrotate runs weekly, so on a
+    # long-running system the live file is usually empty. Fall back to the
+    # newest rotated copy so the last boot's output is still visible.
+    newest=""
+    for cand in /var/log/wm8960-soundcard.log.1.gz /var/log/wm8960-soundcard.log.1; do
+        [ -s "$cand" ] && newest="$cand"
+    done
+    if [ -n "$newest" ]; then
+        echo "(live log is empty -- showing newest rotated log: $newest)"
+        case "$newest" in
+            *.gz) zcat "$newest" | tail -30 ;;
+            *)    tail -30 "$newest" ;;
+        esac
+    elif [ -f /var/log/wm8960-soundcard.log ]; then
+        echo "(log file is empty and no rotated logs were found)"
+    else
+        echo "(log file not found)"
+    fi
 fi
 
 section "Config.txt (WM8960-related)"

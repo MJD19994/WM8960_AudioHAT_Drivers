@@ -39,11 +39,16 @@ struct wm8960_simple_card_info {
     struct simple_util_dai codec_dai;
 };
 
-/* Define dai_link_set_capabilities if not available in the kernel */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 13, 0)
+/*
+ * snd_soc_dai_link_set_capabilities() was declared in <sound/soc-dai.h> from
+ * Linux 5.9 through 6.11 and removed in 6.12, when the ASoC core started
+ * deriving DAI link capabilities itself. Provide a no-op inline on 6.12+ so
+ * the existing call site compiles everywhere; below 6.12 the real function
+ * is called as before.
+ */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
 static inline void snd_soc_dai_link_set_capabilities(struct snd_soc_dai_link *link)
 {
-    /* Empty implementation for older kernels */
 }
 #endif
 
@@ -218,7 +223,16 @@ static int simple_link_init(struct simple_util_priv *priv,
 	dai_link->init			= simple_util_dai_init;
 	dai_link->ops			= &simple_ops;
 
+	/*
+	 * simple_util_set_dailink_name() switched its first argument from
+	 * struct device * to struct simple_util_priv * in Linux 6.15. Pass
+	 * priv on 6.15+, dev on older kernels — both are in scope above.
+	 */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+	return simple_util_set_dailink_name(priv, dai_link, name);
+#else
 	return simple_util_set_dailink_name(dev, dai_link, name);
+#endif
 }
 
 static int simple_dai_link_of_dpcm(struct simple_util_priv *priv,
@@ -519,7 +533,16 @@ static int simple_parse_of(struct simple_util_priv *priv, struct link_info *li)
 	if (ret < 0)
 		return ret;
 
+	/*
+	 * simple_util_parse_card_name() switched its first argument from
+	 * struct snd_soc_card * to struct simple_util_priv * in Linux 6.15.
+	 * Pass priv on 6.15+, card on older kernels.
+	 */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+	ret = simple_util_parse_card_name(priv, PREFIX);
+#else
 	ret = simple_util_parse_card_name(card, PREFIX);
+#endif
 	if (ret < 0)
 		return ret;
 
@@ -774,7 +797,18 @@ static struct platform_driver asoc_wm8960_soundcard = {
 		.of_match_table = simple_of_match,
 	},
 	.probe = simple_probe,
+	/*
+	 * simple_util_remove() returns void since 6.7, but platform_driver.remove
+	 * stayed int until 6.11; the void-returning slot in between was
+	 * .remove_new (dropped again after .remove itself became void). Mirrors
+	 * what mainline simple-card did on each range.
+	 */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0) && \
+    LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
+	.remove_new = simple_util_remove,
+#else
 	.remove = simple_util_remove,
+#endif
 };
 
 module_platform_driver(asoc_wm8960_soundcard);

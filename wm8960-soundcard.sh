@@ -156,7 +156,7 @@ log_message "Detecting WM8960 codec on I2C bus 1 at address 0x1a..."
 for loop in 1 2 3 4 5; do
   log_message "Detection attempt $loop/5..."
   is_1a=$(i2cdetect -y 1 0x1a 0x1a 2>/dev/null | grep -oE '(1a|UU)')
-  if [ "x${is_1a}" != "x" ]; then
+  if [ -n "${is_1a}" ]; then
     log_message "WM8960 codec detected on attempt $loop"
     break
   fi
@@ -167,7 +167,7 @@ for loop in 1 2 3 4 5; do
 done
 
 # Check if codec was found
-if [ "x${is_1a}" != "x" ]; then
+if [ -n "${is_1a}" ]; then
   log_message "SUCCESS: WM8960 codec detected at I2C address 0x1a (value: ${is_1a})"
   
   # Check if overlay is already loaded before attempting to load
