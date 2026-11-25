@@ -123,7 +123,7 @@ The WM8960 driver uses **dynamic overlay loading** via the systemd service inste
 
 2. **I2C detection:** The service script actively detects the codec on I2C bus 1 at address `0x1a` with up to 5 retry attempts with delays.
 
-3. **No driver conflicts:** The driver uses the unique platform name `asoc-wm8960-soundcard`, avoiding conflicts with Pi's built-in audio drivers.
+3. **No driver conflicts:** The overlay's sound node is a standard `simple-audio-card`, bound by the kernel's own `simple-card` driver. This package only adds the codec module, so there is nothing to collide with Pi's built-in audio drivers.
 
 4. **Conditional loading:** The overlay is only loaded via `dtoverlay` if the codec is successfully detected.
 

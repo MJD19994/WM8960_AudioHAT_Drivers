@@ -21,11 +21,12 @@ reviews:
         than apply it locally.
     - path: "kernel_module/**"
       instructions: >
-        WM8960 codec driver (wm8960.c/.h are the raspberrypi/linux rpi-6.18.y
-        files, byte-identical except for the blocks marked "LOCAL PATCH" --
-        do not suggest style or refactoring changes to upstream code there)
-        and a machine driver derived from the kernel's simple-card. The
-        hardcoded clk_id = WM8960_SYSCLK_PLL and
+        WM8960 codec driver only (wm8960.c/.h are the raspberrypi/linux
+        rpi-6.18.y files, byte-identical except for the blocks marked
+        "LOCAL PATCH" -- do not suggest style or refactoring changes to
+        upstream code there). There is no machine driver: the overlay's
+        sound node is a simple-audio-card bound by the kernel's simple-card.
+        The hardcoded clk_id = WM8960_SYSCLK_PLL and
         freq_in = 24000000 in wm8960_set_dai_sysclk are intentional and not
         configurable — every supported HAT (Keyestudio, Waveshare, Seeed
         ReSpeaker 2-Mic) uses the same 24 MHz onboard crystal on the codec's

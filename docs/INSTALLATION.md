@@ -157,18 +157,19 @@ lsmod | grep snd_soc
 ```
 
 **Expected:** Multiple `snd_soc` modules should be listed, including:
-- `snd_soc_wm8960_soundcard` — the WM8960 machine driver
-- `snd_soc_wm8960` — the WM8960 codec driver
+- `snd_soc_wm8960` — the WM8960 codec driver (built by DKMS from this package)
+- `snd_soc_simple_card` — the kernel's generic machine driver, which the overlay binds to the codec
 - `snd_soc_core` — ALSA SoC core
 - `snd_soc_bcm2835_i2s` — Raspberry Pi I2S interface
 
 **Example:**
 
 ```text
-snd_soc_wm8960_soundcard    16384  0
-snd_soc_wm8960              40960  1
-snd_soc_bcm2835_i2s         20480  2
-snd_soc_core               200000  3
+snd_soc_wm8960              49152  1
+snd_soc_simple_card         16384  0
+snd_soc_simple_card_utils   32768  1 snd_soc_simple_card
+snd_soc_bcm2835_i2s         16384  2
+snd_soc_core               299008  6
 ```
 
 ### Check 4: Sound Cards

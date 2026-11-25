@@ -246,7 +246,7 @@ if [ ! -d "$SCRIPT_DIR/kernel_module" ]; then
 fi
 
 echo "Verifying source files..."
-required_files=("wm8960.c" "wm8960.h" "wm8960-soundcard.c" "Makefile" "dkms.conf")
+required_files=("wm8960.c" "wm8960.h" "Makefile" "dkms.conf")
 for file in "${required_files[@]}"; do
     if [ ! -f "$SCRIPT_DIR/kernel_module/$file" ]; then
         echo "Error: Required file $file not found in $SCRIPT_DIR/kernel_module/"
@@ -256,6 +256,10 @@ done
 echo "All required source files present"
 
 mkdir -p "$DKMS_SRC_DIR"
+# Installs up to 1.3.1 also shipped wm8960-soundcard.c (a machine driver
+# that never bound on Pi OS). The Makefile no longer references it, but
+# drop the stale copy so the DKMS tree matches what we ship.
+rm -f "$DKMS_SRC_DIR/wm8960-soundcard.c"
 for file in "${required_files[@]}"; do
     install -m 0644 "$SCRIPT_DIR/kernel_module/$file" "$DKMS_SRC_DIR/$file"
 done

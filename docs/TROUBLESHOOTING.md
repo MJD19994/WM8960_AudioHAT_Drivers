@@ -22,23 +22,15 @@ sudo cat /var/log/wm8960-soundcard.log
 
 ---
 
-## 0. Device Tree Overlay Driver Conflict (RESOLVED)
+## 0. Device Tree Overlay Driver Conflict (HISTORICAL)
 
-**Status:** Resolved in the current version of the driver.
+**Status:** No longer applicable. Since v1.4.0 the package ships only the WM8960 codec module; the sound card is bound by the kernel's own `simple-card` driver, which is what the overlay's `compatible = "simple-audio-card"` node targets. `cat /proc/asound/cards` therefore shows `simple-card - wm8960-soundcard`, and that is the expected output.
 
-**Historical Context:** Earlier versions registered as `asoc-simple-card`, which conflicted with Raspberry Pi's built-in simple-audio-card driver:
+**Historical context:** very early versions shipped a copy of simple-card that registered under the same `asoc-simple-card` name as the kernel's, producing:
 ```text
 Error: Driver 'asoc-simple-card' is already registered, aborting...
 ```
-
-**Current Solution:** The driver now uses `asoc-wm8960-soundcard`, eliminating naming conflicts. If you're upgrading from an older version and still see this error:
-
-```bash
-sudo bash uninstall.sh
-sudo bash install.sh
-sudo reboot
-dmesg | grep wm8960    # should show 'asoc-wm8960-soundcard'
-```
+Versions 1.x up to 1.3.1 renamed that copy to `asoc-wm8960-soundcard`, which removed the error but meant the copy never bound to anything (the kernel's driver always won). v1.4.0 removed it. If you're upgrading from any older version, `install.sh` removes the old DKMS modules automatically; a plain re-install and reboot is all that's needed.
 
 ## 1. Service Failures
 
@@ -260,19 +252,21 @@ sudo cat /var/log/wm8960-soundcard.log
 
 ## 9. Module Loading Issues
 
-**Symptoms:** `lsmod | grep snd_soc_wm8960` shows no modules or only one.
+**Symptoms:** `lsmod | grep -E 'snd_soc_wm8960|snd_soc_simple_card'` shows nothing, or only one of the two.
 
 **Diagnosis:**
 ```bash
-lsmod | grep snd_soc_wm8960
-# Expected: both snd_soc_wm8960 (codec) and snd_soc_wm8960_soundcard (machine driver)
+lsmod | grep -E 'snd_soc_wm8960|snd_soc_simple_card'
+# Expected: snd_soc_wm8960 (our DKMS codec module) and
+#           snd_soc_simple_card (the kernel's machine driver, bound by the overlay)
 sudo dkms status
 ```
 
 **Solution:**
 ```bash
 sudo modprobe snd_soc_wm8960
-sudo modprobe snd_soc_wm8960_soundcard
+# simple-card loads automatically when the overlay is applied; if it is
+# missing, the overlay did not load -- check the service log.
 ```
 
 If modules fail to load, check DKMS status. If the module isn't built for the running kernel, restart the service to trigger auto-rebuild:

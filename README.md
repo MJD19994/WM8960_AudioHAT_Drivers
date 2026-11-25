@@ -66,7 +66,7 @@ These combinations are verified to work on real hardware:
 | Raspberry Pi Zero 2W | Raspberry Pi OS Lite Trixie (64-bit) | 6.18.60+rpt-rpi-v8 | Verified via `apt full-upgrade` from 6.18.34 — DKMS autoinstall during kernel postinst, no boot-time rebuild needed |
 | Other 40-pin Pi models | Raspberry Pi OS Trixie or newer | 6.7+ | Should work (same kernel APIs) — please report results |
 
-The codec driver is the Raspberry Pi 6.18 kernel's `wm8960.c` with three small local patches (see the header comment in `kernel_module/wm8960.c`); the machine driver carries compatibility wrappers for the ASoC/platform API changes in 6.7, 6.11, 6.12 and 6.15. DKMS builds both, and the boot-time auto-rebuild handles cross-kernel scenarios automatically. The source is compile-checked against 6.8, 6.11, 6.14 and 6.17 (Ubuntu arm64 headers) in addition to the Raspberry Pi kernels above. Kernels older than 6.7 are not supported: the `simple_util_*` helpers the driver is built on were named `asoc_simple_*` before then.
+The only kernel module this package builds is the codec driver: the Raspberry Pi 6.18 kernel's `wm8960.c` with three small local patches (see the header comment in `kernel_module/wm8960.c`). The sound card itself is bound by the kernel's own `simple-card` driver, so there is no machine driver to maintain. DKMS builds the codec module, and the boot-time auto-rebuild handles cross-kernel scenarios automatically. The source is compile-checked against 6.8, 6.11, 6.14 and 6.17 (Ubuntu arm64 headers) in addition to the Raspberry Pi kernels above. Kernels older than 6.7 are untested.
 
 ## Quick Install
 
@@ -267,7 +267,7 @@ This repository ships four top-level license tiers, one per top-level component,
 | Component | License | Why |
 |-----------|---------|-----|
 | Scripts, configs, overlays, service files, docs, and all files at the repo root | **MIT** — see [LICENSE](LICENSE) | Original work, kept permissive for maximum reuse |
-| [`kernel_module/`](kernel_module/) — DKMS kernel module source | **GPL-2.0-only** | The Raspberry Pi Linux kernel's `wm8960.c` codec driver (Copyright 2007–2011 Wolfson Microelectronics) with three local patches, plus a machine driver derived from the kernel's simple-card; kernel modules inherit the kernel's license |
+| [`kernel_module/`](kernel_module/) — DKMS kernel module source | **GPL-2.0-only** | The Raspberry Pi Linux kernel's `wm8960.c` codec driver (Copyright 2007–2011 Wolfson Microelectronics) with three local patches; kernel modules inherit the kernel's license |
 | [`dkms/snd-aloop/`](dkms/snd-aloop/) — optional DKMS fallback for the snd-aloop loopback module | **GPL-2.0-or-later** | Source taken from the Linux kernel tree under its original header terms; only used as a build fallback when the running kernel doesn't ship `snd-aloop` as a built-in module |
 | [`tools/echo-cancel/`](tools/echo-cancel/) — optional echo canceller | **GPL-3.0-or-later** — see [tools/echo-cancel/LICENSE-GPL3](tools/echo-cancel/LICENSE-GPL3) | SpeexDSP engine inherits GPLv3-compatible terms from [voice-engine/ec](https://github.com/voice-engine/ec); WebRTC engine is GPL-3.0-or-later by our choice for consistency. The vendored PortAudio ring buffer (`pa_ringbuffer.*`, `pa_memorybarrier.h`) retains its original BSD-style license. |
 

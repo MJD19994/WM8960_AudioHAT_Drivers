@@ -15,8 +15,11 @@
  * the blocks marked "LOCAL PATCH" below:
  *
  *   1. audio_paths: MICB -> Left/Right Boost Mixer routes, so mic bias is
- *      powered whenever an input boost mixer is active (the analog mics on
- *      the ReSpeaker 2-Mic / Keyestudio / Waveshare HATs need it).
+ *      powered whenever an input boost mixer is active. Inherited from the
+ *      Seeed ReSpeaker driver. Note the on-board MEMS mics on the ReSpeaker
+ *      2-Mic / Keyestudio HAT are powered from 3.3 V, not MICBIAS (per the
+ *      Seeed schematic), so this only matters for an electret/headset mic
+ *      wired to the MICBIAS net. Harmless otherwise.
  *   2. wm8960_set_dai_sysclk(): always run in PLL mode from the HAT's
  *      onboard 24 MHz crystal, regardless of the clk_id and sysclk the
  *      machine driver passes. See the comment there for why.

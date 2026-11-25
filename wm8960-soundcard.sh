@@ -176,8 +176,9 @@ if [ -n "${is_1a}" ]; then
     log_message "WM8960 overlay already loaded, skipping overlay load"
   else
     log_message "Loading wm8960-soundcard device tree overlay..."
-    # Load the WM8960 overlay dynamically (ONLY HERE - not in config.txt)
-    # No need to disable /sound node - we use unique driver name "asoc-wm8960-soundcard"
+    # Load the WM8960 overlay dynamically (ONLY HERE - not in config.txt).
+    # The overlay's sound node is "simple-audio-card", bound by the kernel's
+    # own simple-card driver; our DKMS package only supplies the codec module.
     if ! dtoverlay wm8960-soundcard; then
       log_error_exit "Failed to load wm8960-soundcard overlay" 3
     fi
@@ -293,7 +294,7 @@ if [ -n "${is_1a}" ]; then
   # Log kernel module version information if debug mode is enabled
   if [ "${DEBUG}" = "1" ]; then
     log_message "Debug: Kernel module information:"
-    modinfo snd_soc_wm8960_soundcard 2>/dev/null | head -10 || log_message "Debug: Module info not available"
+    modinfo snd_soc_wm8960 2>/dev/null | head -10 || log_message "Debug: Module info not available"
   fi
   
   log_message "WM8960 service initialization complete successfully"

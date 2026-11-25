@@ -120,22 +120,25 @@ fi
 
 # ---------- Check 4: Kernel Modules ----------
 echo "Check 4/10: Kernel modules..."
+# The package ships only the codec module; the sound card itself is bound
+# by the kernel's own simple-card driver (snd_soc_simple_card), which the
+# overlay targets with compatible = "simple-audio-card".
 codec_loaded=false
-soundcard_loaded=false
+simple_card_loaded=false
 
 if lsmod | grep -q "^snd_soc_wm8960 "; then
     codec_loaded=true
 fi
-if lsmod | grep -q "snd_soc_wm8960_soundcard"; then
-    soundcard_loaded=true
+if lsmod | grep -q "^snd_soc_simple_card "; then
+    simple_card_loaded=true
 fi
 
-if $codec_loaded && $soundcard_loaded; then
-    pass "Both kernel modules loaded (snd_soc_wm8960, snd_soc_wm8960_soundcard)"
+if $codec_loaded && $simple_card_loaded; then
+    pass "Kernel modules loaded (snd_soc_wm8960 codec, snd_soc_simple_card machine driver)"
 elif $codec_loaded; then
-    fail "Codec module loaded but soundcard module missing"
-elif $soundcard_loaded; then
-    fail "Soundcard module loaded but codec module missing"
+    fail "Codec module loaded but the kernel's snd_soc_simple_card is not (overlay not loaded?)"
+elif $simple_card_loaded; then
+    fail "snd_soc_simple_card loaded but the WM8960 codec module is missing (DKMS build?)"
 else
     fail "No WM8960 kernel modules loaded (service running?)"
 fi
