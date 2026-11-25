@@ -180,17 +180,39 @@ static int write_all_pcm(snd_pcm_t *pcm, const int16_t *buf,
     return done == frames ? 0 : -1;
 }
 
-// Service runs as root — use O_NOFOLLOW + 0600 so a symlink planted at the
-// debug path can't clobber arbitrary files. The extra S_ISREG check rejects
-// pre-planted FIFOs or device nodes — otherwise an attacker could read our
-// debug audio through a FIFO they own.
+// Open a debug file safely. The service runs as root and these paths live in
+// world-writable /tmp, so validate before writing anything:
+//   O_NOFOLLOW  — a symlink planted at the path can't redirect us elsewhere.
+//   O_NONBLOCK  — a FIFO planted at the path can't wedge open() waiting for a
+//                 reader (it fails ENXIO instead). No effect on regular files.
+//   no O_TRUNC  — truncating happens only after the checks below, so a file
+//                 someone else pre-created is never modified at all.
+//   S_ISREG     — rejects FIFOs and device nodes that survived the above.
+//   st_uid      — rejects a regular file pre-created by another user; without
+//                 this they could pre-create the path and then read the mic
+//                 audio we write into it.
+//   st_nlink    — rejects a hardlink planted at the path. The uid check alone
+//                 passes for a link to a root-owned file, so without this an
+//                 unprivileged user can point the path at any file root can
+//                 write and have us truncate it. Armbian images ship with
+//                 fs.protected_hardlinks=0, so that link is theirs to make.
+// Only once the fd is known to be our own unlinked regular file do we reassert
+// 0600 (an earlier run may have left it more permissive) and truncate.
+// Keep this in sync with the identical helper in ec.c.
 static FILE *open_debug_file(const char *path)
 {
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
+    int fd = open(path, O_WRONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0 && errno == ENOENT)
+        fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW, 0600);
     if (fd < 0)
         return nullptr;
     struct stat st;
-    if (fstat(fd, &st) < 0 || !S_ISREG(st.st_mode)) {
+    if (fstat(fd, &st) < 0 || !S_ISREG(st.st_mode) ||
+        st.st_uid != geteuid() || st.st_nlink != 1) {
+        close(fd);
+        return nullptr;
+    }
+    if (fchmod(fd, 0600) < 0 || ftruncate(fd, 0) < 0) {
         close(fd);
         return nullptr;
     }
@@ -428,6 +450,15 @@ int main(int argc, char *argv[])
         goto fail4;
     }
 
+    // Mic reads are this loop's only pacing: a healthy blocking read takes one
+    // 10 ms frame, but a dead device fails instantly, so an unbounded retry
+    // would spin the loop at 100% CPU writing silence while the service stays
+    // 'active' and Restart=always never fires. Throttle each failed iteration
+    // to one frame period and exit after ~5 s of consecutive failures so
+    // systemd restarts us instead.
+    int mic_fail_streak = 0;
+    const int mic_fail_limit = 500;
+
     while (!g_quit)
     {
         // 1. Read mic (stereo from dsnoop → mono downmix)
@@ -436,9 +467,20 @@ int main(int argc, char *argv[])
             alsa_recover(pcm_mic, mr);
             mr = snd_pcm_readi(pcm_mic, mic_stereo, frame_size);
             if (mr < 0) {
+                if (++mic_fail_streak >= mic_fail_limit) {
+                    fprintf(stderr, "Mic read failed %d times in a row (%s) — exiting\n",
+                            mic_fail_streak, snd_strerror((int)mr));
+                    exit_status = 1;
+                    break;
+                }
+                usleep(1000000 / 100);  // one 10 ms frame period
                 memset(mic_stereo, 0, frame_size * 2 * sizeof(int16_t));
                 mr = 0;
+            } else {
+                mic_fail_streak = 0;
             }
+        } else {
+            mic_fail_streak = 0;
         }
         // Zero-fill on short read to avoid processing stale data
         if (mr > 0 && (unsigned)mr < frame_size)

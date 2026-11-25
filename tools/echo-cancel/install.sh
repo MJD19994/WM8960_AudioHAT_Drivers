@@ -19,6 +19,19 @@ ALOOP_DKMS_SRC="${SCRIPT_DIR}/../../dkms/snd-aloop"
 log() { echo "[EC] $1"; }
 log_error() { echo "[EC] ERROR: $1" >&2; }
 
+# True only for a config file this installer wrote (AEC drop-in,
+# modules-load entry). Match the exact first-line marker emitted below, not a
+# substring anywhere in the file -- a hand-written config that merely mentions
+# "wm8960-managed" in a comment is still the user's to keep. Install and
+# uninstall must agree on this test, otherwise uninstall deletes files install
+# would have refused to overwrite.
+MANAGED_MARKER="# wm8960-managed"
+is_managed_conf() {
+    [ -f "$1" ] || return 1
+    IFS= read -r first_line < "$1" || return 1
+    [ "$first_line" = "$MANAGED_MARKER" ]
+}
+
 if [ "$(id -u)" -ne 0 ]; then
     log_error "This script must be run as root (sudo)"
     exit 1
@@ -44,18 +57,19 @@ if [ "$UNINSTALL" -eq 1 ]; then
     rm -f /usr/local/bin/wm8960-ec
     rm -f /usr/local/bin/wm8960-ec-webrtc
     rm -f /tmp/ec.input /tmp/ec.output
-    if grep -q "wm8960-managed" /etc/alsa/conf.d/50-wm8960-aec.conf 2>/dev/null; then
-        rm -f /etc/alsa/conf.d/50-wm8960-aec.conf
-    fi
-    if grep -q "wm8960-managed" /etc/alsa/conf.d/50-aec.conf 2>/dev/null; then
-        rm -f /etc/alsa/conf.d/50-aec.conf  # clean up legacy name (only if we own it)
-    fi
-    if grep -q "wm8960-managed" /etc/modules-load.d/wm8960-snd-aloop.conf 2>/dev/null; then
-        rm -f /etc/modules-load.d/wm8960-snd-aloop.conf
-    fi
-    if grep -q "wm8960-managed" /etc/modules-load.d/snd-aloop.conf 2>/dev/null; then
-        rm -f /etc/modules-load.d/snd-aloop.conf  # clean up legacy name (only if we own it)
-    fi
+    # Only delete files we wrote (exact first-line marker). An unmanaged
+    # drop-in is left alone with a note, matching the refusal-to-overwrite
+    # check on the install path.
+    for f in /etc/alsa/conf.d/50-wm8960-aec.conf \
+             /etc/alsa/conf.d/50-aec.conf \
+             /etc/modules-load.d/wm8960-snd-aloop.conf \
+             /etc/modules-load.d/snd-aloop.conf; do
+        if is_managed_conf "$f"; then
+            rm -f "$f"
+        elif [ -f "$f" ]; then
+            log "Leaving unmanaged $f in place"
+        fi
+    done
     # Unregister snd-aloop DKMS if we registered it (built-in kernel module is unaffected).
     # Separate the dkms exit code from the grep parsing so a broken DKMS state
     # doesn't masquerade as "not registered" and then have us delete the source
@@ -116,7 +130,7 @@ if [ "$ENGINE" = "webrtc" ]; then
     legacy_aec_target=/etc/alsa/conf.d/50-aec.conf
     if [ -f "${SCRIPT_DIR}/configs/alsa-aec.conf" ] && \
        [ -f "$aec_target" ] && \
-       ! grep -q "wm8960-managed" "$aec_target" 2>/dev/null; then
+       ! is_managed_conf "$aec_target"; then
         log_error "$aec_target exists and is not wm8960-managed -- refusing to overwrite. Move or remove it, then re-run."
         exit 1
     fi
@@ -127,7 +141,7 @@ if [ "$ENGINE" = "webrtc" ]; then
     # one up front rather than installing a second active config.
     if [ -f "${SCRIPT_DIR}/configs/alsa-aec.conf" ] && \
        [ -f "$legacy_aec_target" ] && \
-       ! grep -q "wm8960-managed" "$legacy_aec_target" 2>/dev/null; then
+       ! is_managed_conf "$legacy_aec_target"; then
         log_error "$legacy_aec_target exists and is not wm8960-managed -- refusing to install a second competing AEC drop-in. Move or remove it, then re-run."
         exit 1
     fi
@@ -185,8 +199,7 @@ MODEOF
         } > "$aec_target"
         # Drop a previous unprefixed-name install if still present so we
         # don't end up with two competing AEC drop-ins active at once.
-        if [ -f "$legacy_aec_target" ] && \
-           grep -q "wm8960-managed" "$legacy_aec_target" 2>/dev/null; then
+        if is_managed_conf "$legacy_aec_target"; then
             rm -f "$legacy_aec_target"
         fi
         log "ALSA AEC config installed at $aec_target"
@@ -203,7 +216,7 @@ if [ "$ENGINE" = "speex" ]; then
              /etc/alsa/conf.d/50-wm8960-aec.conf \
              /etc/modules-load.d/wm8960-snd-aloop.conf \
              /etc/modules-load.d/snd-aloop.conf; do
-        if [ -f "$f" ] && grep -q "wm8960-managed" "$f" 2>/dev/null; then
+        if is_managed_conf "$f"; then
             rm -f "$f"
             log "Removed stale WebRTC drop-in: $f"
         fi

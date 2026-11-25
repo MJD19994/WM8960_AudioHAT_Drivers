@@ -34,17 +34,38 @@ static unsigned parse_nonneg(const char *s, const char *name)
     return (unsigned)v;
 }
 
-// Open a debug file safely: service runs as root, so O_NOFOLLOW + 0600 keeps
-// a symlink planted at the path from clobbering arbitrary files. The extra
-// S_ISREG check rejects pre-planted FIFOs or device nodes — otherwise an
-// attacker could read our debug audio through a FIFO they own.
+// Open a debug file safely. The service runs as root and these paths live in
+// world-writable /tmp, so validate before writing anything:
+//   O_NOFOLLOW  — a symlink planted at the path can't redirect us elsewhere.
+//   O_NONBLOCK  — a FIFO planted at the path can't wedge open() waiting for a
+//                 reader (it fails ENXIO instead). No effect on regular files.
+//   no O_TRUNC  — truncating happens only after the checks below, so a file
+//                 someone else pre-created is never modified at all.
+//   S_ISREG     — rejects FIFOs and device nodes that survived the above.
+//   st_uid      — rejects a regular file pre-created by another user; without
+//                 this they could pre-create the path and then read the mic
+//                 audio we write into it.
+//   st_nlink    — rejects a hardlink planted at the path. The uid check alone
+//                 passes for a link to a root-owned file, so without this an
+//                 unprivileged user can point the path at any file root can
+//                 write and have us truncate it. Armbian images ship with
+//                 fs.protected_hardlinks=0, so that link is theirs to make.
+// Only once the fd is known to be our own unlinked regular file do we reassert
+// 0600 (an earlier run may have left it more permissive) and truncate.
 static FILE *open_debug_file(const char *path)
 {
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
+    int fd = open(path, O_WRONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0 && errno == ENOENT)
+        fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW, 0600);
     if (fd < 0)
         return NULL;
     struct stat st;
-    if (fstat(fd, &st) < 0 || !S_ISREG(st.st_mode)) {
+    if (fstat(fd, &st) < 0 || !S_ISREG(st.st_mode) ||
+        st.st_uid != geteuid() || st.st_nlink != 1) {
+        close(fd);
+        return NULL;
+    }
+    if (fchmod(fd, 0600) < 0 || ftruncate(fd, 0) < 0) {
         close(fd);
         return NULL;
     }
@@ -175,9 +196,14 @@ int main(int argc, char *argv[])
         }
     }
 
-    /* Validate critical parameters. delay is bounds-checked at parse time. */
-    if (config.rate == 0 || config.rate > 192000) {
-        fprintf(stderr, "Invalid sample rate: %u\n", config.rate);
+    /* Validate critical parameters. delay is bounds-checked at parse time.
+     * The lower bound matters: the 10 ms frame size is rate*10/1000, so rates
+     * under 100 truncate it to ZERO — calloc(0) buffers, Speex init with
+     * frame size 0, and a main loop that spins doing nothing. 8000 is the
+     * lowest rate either engine meaningfully supports, and multiples of 100
+     * keep the 10 ms frame exact. */
+    if (config.rate < 8000 || config.rate > 192000 || config.rate % 100 != 0) {
+        fprintf(stderr, "Invalid sample rate: %u (must be 8000..192000 and a multiple of 100)\n", config.rate);
         exit(1);
     }
     if (config.rec_channels == 0 || config.rec_channels > 32) {
